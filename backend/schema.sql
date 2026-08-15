@@ -42,13 +42,13 @@ CREATE TABLE IF NOT EXISTS profiles (
 -- Stores body information for each profile.
 -- One profile can have only one body_profile row.
 -- ============================================================
-
 CREATE TABLE IF NOT EXISTS body_profile (
     profile_id INT PRIMARY KEY,
     dob DATE NOT NULL,
     gender VARCHAR(20) NOT NULL,
     height_cm DECIMAL(5,2) NOT NULL,
     waist_cm DECIMAL(5,2),
+    chest_cm DECIMAL(5,2),
     neck_cm DECIMAL(5,2),
     hip_cm DECIMAL(5,2),
     target_weight_kg DECIMAL(5,2),

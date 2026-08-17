@@ -1,36 +1,25 @@
 const express = require("express");
 const cors = require("cors");
 const pool = require("./db");
+const requestLogger = require("./middleware/requestLogger");
+const errorHandler = require("./middleware/errorHandler");
+
 require("dotenv").config();
 
 const app = express();
+const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
-
-const PORT = process.env.PORT || 5000;
-
-// ============================================================
-// STARTUP INFORMATION
-// ============================================================
-
-console.log("==============================================");
-console.log("WEIGHT TRACKER BACKEND STARTING");
-console.log("==============================================");
-console.log("PORT:", PORT);
-console.log("DB_HOST:", process.env.DB_HOST);
-console.log("DB_USER:", process.env.DB_USER);
-console.log("DB_NAME:", process.env.DB_NAME);
-console.log("DB_PORT:", process.env.DB_PORT);
-console.log(
-    "DB_PASSWORD:",
-    process.env.DB_PASSWORD ? "Loaded ✓" : "Missing ✗"
-);
-console.log("==============================================");
+app.use(requestLogger);
 
 // ============================================================
 // HELPER FUNCTIONS
 // ============================================================
+
+const asyncHandler = (handler) => (req, res, next) => {
+    Promise.resolve(handler(req, res, next)).catch(next);
+};
 
 function roundToTwo(value) {
     return Number(Number(value).toFixed(2));
@@ -38,13 +27,20 @@ function roundToTwo(value) {
 
 function isPositiveNumber(value) {
     const number = Number(value);
-
     return Number.isFinite(number) && number > 0;
 }
 
-// ------------------------------------------------------------
-// BMI
-// ------------------------------------------------------------
+function isValidId(value) {
+    return Number.isInteger(value) && value > 0;
+}
+
+function numberOrNull(value) {
+    if (value === undefined || value === null || value === "") {
+        return null;
+    }
+
+    return Number(value);
+}
 
 function calculateBMI(weightKg, heightCm) {
     const heightM = heightCm / 100;
@@ -53,54 +49,28 @@ function calculateBMI(weightKg, heightCm) {
         return null;
     }
 
-    return roundToTwo(
-        weightKg / (heightM * heightM)
-    );
+    return roundToTwo(weightKg / (heightM * heightM));
 }
 
 function getBMICategory(bmi) {
-    if (bmi === null) {
-        return null;
-    }
-
-    if (bmi < 18.5) {
-        return "Underweight";
-    }
-
-    if (bmi < 25) {
-        return "Normal";
-    }
-
-    if (bmi < 30) {
-        return "Overweight";
-    }
+    if (bmi === null) return null;
+    if (bmi < 18.5) return "Underweight";
+    if (bmi < 25) return "Normal";
+    if (bmi < 30) return "Overweight";
 
     return "Obesity";
 }
-
-// ------------------------------------------------------------
-// HEALTHY BMI WEIGHT RANGE
-// ------------------------------------------------------------
 
 function calculateHealthyWeightRange(heightCm) {
     const heightM = heightCm / 100;
 
     return {
-        minimum_kg: roundToTwo(
-            18.5 * heightM * heightM
-        ),
-
-        maximum_kg: roundToTwo(
-            24.9 * heightM * heightM
-        )
+        minimum_kg: roundToTwo(18.5 * heightM * heightM),
+        maximum_kg: roundToTwo(24.9 * heightM * heightM)
     };
 }
 
-// ------------------------------------------------------------
-// BODY FAT
-// U.S. Navy formula
-// ------------------------------------------------------------
-
+// U.S. Navy body-fat formula
 function calculateBodyFat(
     gender,
     heightCm,
@@ -108,38 +78,27 @@ function calculateBodyFat(
     neckCm,
     hipCm
 ) {
-    if (
-        waistCm === null ||
-        neckCm === null
-    ) {
+    if (waistCm === null || neckCm === null) {
         return null;
     }
 
+    const normalizedGender = String(gender).toLowerCase();
+
     let bodyFat;
 
-    const normalizedGender =
-        String(gender).toLowerCase();
-
     if (normalizedGender === "male") {
-
         if (waistCm <= neckCm) {
             return null;
         }
 
         const density =
             1.0324 -
-            0.19077 *
-            Math.log10(
-                waistCm - neckCm
-            ) +
-            0.15456 *
-            Math.log10(heightCm);
+            0.19077 * Math.log10(waistCm - neckCm) +
+            0.15456 * Math.log10(heightCm);
 
-        bodyFat =
-            495 / density - 450;
+        bodyFat = 495 / density - 450;
 
     } else if (normalizedGender === "female") {
-
         if (
             hipCm === null ||
             waistCm + hipCm <= neckCm
@@ -150,16 +109,12 @@ function calculateBodyFat(
         const density =
             1.29579 -
             0.35004 *
-            Math.log10(
-                waistCm +
-                hipCm -
-                neckCm
-            ) +
-            0.22100 *
-            Math.log10(heightCm);
+                Math.log10(
+                    waistCm + hipCm - neckCm
+                ) +
+            0.221 * Math.log10(heightCm);
 
-        bodyFat =
-            495 / density - 450;
+        bodyFat = 495 / density - 450;
 
     } else {
         return null;
@@ -168,84 +123,62 @@ function calculateBodyFat(
     return roundToTwo(bodyFat);
 }
 
+function normalizeProfile(profile) {
+    return {
+        ...profile,
+
+        height_cm:
+            numberOrNull(profile.height_cm),
+
+        waist_cm:
+            numberOrNull(profile.waist_cm),
+
+        chest_cm:
+            numberOrNull(profile.chest_cm),
+
+        neck_cm:
+            numberOrNull(profile.neck_cm),
+
+        hip_cm:
+            numberOrNull(profile.hip_cm),
+
+        target_weight_kg:
+            numberOrNull(profile.target_weight_kg),
+
+        current_weight_kg:
+            numberOrNull(profile.current_weight_kg)
+    };
+}
+
 // ============================================================
 // TEST ROUTE
 // ============================================================
 
 app.get("/", (req, res) => {
-
-    console.log("\n[TEST-1] GET / request received");
-
     res.status(200).json({
         status: "success",
-        message:
-            "Weight Tracker backend is working"
+        message: "Weight Tracker backend is working"
     });
-
-    console.log(
-        "[TEST-2] GET / response sent ✓"
-    );
 });
 
 // ============================================================
 // DATABASE HEALTH CHECK
 // ============================================================
 
-app.get("/api/health", async (req, res) => {
+app.get(
+    "/api/health",
 
-    console.log("\n==============================================");
-    console.log("[HEALTH] Database health check");
-    console.log("==============================================");
-
-    try {
-
-        console.log(
-            "[HEALTH-1] Testing MariaDB connection..."
-        );
-
-        const rows = await pool.query(
+    asyncHandler(async (req, res) => {
+        await pool.query(
             "SELECT 1 AS database_test"
-        );
-
-        console.log(
-            "[HEALTH-2] MariaDB connection successful ✓"
-        );
-
-        console.log(
-            "[HEALTH-3] Result:",
-            rows[0]
         );
 
         res.status(200).json({
             backend: "working",
             database: "connected"
         });
-
-    } catch (error) {
-
-        console.error(
-            "[HEALTH-ERROR] MariaDB connection failed ✗"
-        );
-
-        console.error(
-            "Code:",
-            error.code
-        );
-
-        console.error(
-            "Message:",
-            error.message
-        );
-
-        res.status(500).json({
-            backend: "working",
-            database: "failed",
-            error:
-                error.code ||
-                "DATABASE_ERROR"
-        });
-    }
-});
+    })
+);
 
 // ============================================================
 // USER ROUTES
@@ -257,97 +190,29 @@ app.get("/api/health", async (req, res) => {
 
 app.post(
     "/api/users",
-    async (req, res) => {
 
-        console.log("\n==============================================");
-        console.log("[USER-CREATE] Request received");
-        console.log("==============================================");
+    asyncHandler(async (req, res) => {
+        const { name } = req.body;
 
-        try {
-
-            const { name } = req.body;
-
-            console.log(
-                "[USER-CREATE-1] Validating data..."
-            );
-
-            if (
-                !name ||
-                !name.trim()
-            ) {
-                console.log(
-                    "[USER-CREATE-ERROR] Name missing"
-                );
-
-                return res.status(400).json({
-                    error:
-                        "Name is required"
-                });
-            }
-
-            console.log(
-                "[USER-CREATE-2] Validation successful ✓"
-            );
-
-            console.log(
-                "[USER-CREATE-3] Inserting user..."
-            );
-
-            const result =
-                await pool.query(
-                    `
-                    INSERT INTO users
-                    (
-                        name
-                    )
-                    VALUES (?)
-                    `,
-                    [
-                        name.trim()
-                    ]
-                );
-
-            console.log(
-                "[USER-CREATE-4] User inserted ✓"
-            );
-
-            console.log(
-                "[USER-CREATE-5] user_id:",
-                result.insertId
-            );
-
-            res.status(201).json({
-                message:
-                    "User created successfully",
-
-                user_id:
-                    Number(
-                        result.insertId
-                    )
-            });
-
-        } catch (error) {
-
-            console.error(
-                "[USER-CREATE-ERROR] Query failed ✗"
-            );
-
-            console.error(
-                "Code:",
-                error.code
-            );
-
-            console.error(
-                "Message:",
-                error.message
-            );
-
-            res.status(500).json({
-                error:
-                    "Failed to create user"
+        if (!name || !name.trim()) {
+            return res.status(400).json({
+                error: "Name is required"
             });
         }
-    }
+
+        const result = await pool.query(
+            `
+            INSERT INTO users (name)
+            VALUES (?)
+            `,
+            [name.trim()]
+        );
+
+        res.status(201).json({
+            message: "User created successfully",
+            user_id: Number(result.insertId)
+        });
+    })
 );
 
 // ------------------------------------------------------------
@@ -356,92 +221,37 @@ app.post(
 
 app.get(
     "/api/users/:userId",
-    async (req, res) => {
 
-        console.log("\n==============================================");
-        console.log("[USER-GET] Request received");
-        console.log("==============================================");
+    asyncHandler(async (req, res) => {
+        const userId =
+            Number(req.params.userId);
 
-        try {
-
-            const userId =
-                Number(
-                    req.params.userId
-                );
-
-            console.log(
-                "[USER-GET-1] userId:",
-                userId
-            );
-
-            if (
-                !Number.isInteger(userId) ||
-                userId <= 0
-            ) {
-                return res.status(400).json({
-                    error:
-                        "Invalid user ID"
-                });
-            }
-
-            console.log(
-                "[USER-GET-2] Running SELECT query..."
-            );
-
-            const rows =
-                await pool.query(
-                    `
-                    SELECT
-                        user_id,
-                        name,
-                        created_at
-                    FROM users
-                    WHERE user_id = ?
-                    `,
-                    [userId]
-                );
-
-            console.log(
-                "[USER-GET-3] SELECT successful ✓"
-            );
-
-            console.log(
-                "[USER-GET-4] Rows:",
-                rows.length
-            );
-
-            if (rows.length === 0) {
-
-                return res.status(404).json({
-                    error:
-                        "User not found"
-                });
-            }
-
-            res.json(rows[0]);
-
-        } catch (error) {
-
-            console.error(
-                "[USER-GET-ERROR] Failed ✗"
-            );
-
-            console.error(
-                "Code:",
-                error.code
-            );
-
-            console.error(
-                "Message:",
-                error.message
-            );
-
-            res.status(500).json({
-                error:
-                    "Failed to get user"
+        if (!isValidId(userId)) {
+            return res.status(400).json({
+                error: "Invalid user ID"
             });
         }
-    }
+
+        const rows = await pool.query(
+            `
+            SELECT
+                user_id,
+                name,
+                created_at
+            FROM users
+            WHERE user_id = ?
+            `,
+            [userId]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({
+                error: "User not found"
+            });
+        }
+
+        res.json(rows[0]);
+    })
 );
 
 // ============================================================
@@ -454,20 +264,13 @@ app.get(
 
 app.post(
     "/api/users/:userId/profiles",
-    async (req, res) => {
 
-        console.log("\n==============================================");
-        console.log("[PROFILE-CREATE] Request received");
-        console.log("==============================================");
-
+    async (req, res, next) => {
         let connection;
 
         try {
-
             const userId =
-                Number(
-                    req.params.userId
-                );
+                Number(req.params.userId);
 
             const {
                 profile_name,
@@ -482,22 +285,9 @@ app.post(
                 target_weight_kg
             } = req.body;
 
-            console.log(
-                "[PROFILE-CREATE-1] userId:",
-                userId
-            );
-
-            console.log(
-                "[PROFILE-CREATE-2] Validating input..."
-            );
-
-            if (
-                !Number.isInteger(userId) ||
-                userId <= 0
-            ) {
+            if (!isValidId(userId)) {
                 return res.status(400).json({
-                    error:
-                        "Invalid user ID"
+                    error: "Invalid user ID"
                 });
             }
 
@@ -505,9 +295,7 @@ app.post(
                 !profile_name ||
                 !dob ||
                 !gender ||
-                !isPositiveNumber(
-                    height_cm
-                )
+                !isPositiveNumber(height_cm)
             ) {
                 return res.status(400).json({
                     error:
@@ -516,15 +304,10 @@ app.post(
             }
 
             const normalizedGender =
-                gender
-                    .trim()
-                    .toLowerCase();
+                gender.trim().toLowerCase();
 
             if (
-                ![
-                    "male",
-                    "female"
-                ].includes(
+                !["male", "female"].includes(
                     normalizedGender
                 )
             ) {
@@ -538,77 +321,29 @@ app.post(
                 Number(height_cm);
 
             const waist =
-                waist_cm !== undefined &&
-                    waist_cm !== null &&
-                    waist_cm !== ""
-                    ? Number(waist_cm)
-                    : null;
+                numberOrNull(waist_cm);
 
             const chest =
-                chest_cm !== undefined &&
-                    chest_cm !== null &&
-                    chest_cm !== ""
-                    ? Number(chest_cm)
-                    : null;
+                numberOrNull(chest_cm);
 
             const neck =
-                neck_cm !== undefined &&
-                    neck_cm !== null &&
-                    neck_cm !== ""
-                    ? Number(neck_cm)
-                    : null;
+                numberOrNull(neck_cm);
 
             const hip =
-                hip_cm !== undefined &&
-                    hip_cm !== null &&
-                    hip_cm !== ""
-                    ? Number(hip_cm)
-                    : null;
+                numberOrNull(hip_cm);
 
             const targetWeight =
-                target_weight_kg !== undefined &&
-                    target_weight_kg !== null &&
-                    target_weight_kg !== ""
-                    ? Number(
-                        target_weight_kg
-                    )
-                    : null;
+                numberOrNull(target_weight_kg);
 
             const currentWeight =
-                current_weight_kg !== undefined &&
-                    current_weight_kg !== null &&
-                    current_weight_kg !== ""
-                    ? Number(
-                        current_weight_kg
-                    )
-                    : null;
-
-            console.log(
-                "[PROFILE-CREATE-3] Validation successful ✓"
-            );
-
-            console.log(
-                "[PROFILE-CREATE-4] Getting database connection..."
-            );
+                numberOrNull(current_weight_kg);
 
             connection =
                 await pool.getConnection();
 
-            console.log(
-                "[PROFILE-CREATE-5] Connection acquired ✓"
-            );
-
             await connection.beginTransaction();
 
-            console.log(
-                "[PROFILE-CREATE-6] Transaction started"
-            );
-
-            // Check user exists
-            console.log(
-                "[PROFILE-CREATE-7] Checking parent user..."
-            );
-
+            // Check parent user
             const userRows =
                 await connection.query(
                     `
@@ -619,26 +354,15 @@ app.post(
                     [userId]
                 );
 
-            if (
-                userRows.length === 0
-            ) {
+            if (userRows.length === 0) {
                 await connection.rollback();
 
                 return res.status(404).json({
-                    error:
-                        "Main user not found"
+                    error: "Main user not found"
                 });
             }
 
-            console.log(
-                "[PROFILE-CREATE-8] Parent user found ✓"
-            );
-
             // Create profile
-            console.log(
-                "[PROFILE-CREATE-9] Creating profile..."
-            );
-
             const profileResult =
                 await connection.query(
                     `
@@ -660,20 +384,7 @@ app.post(
                     profileResult.insertId
                 );
 
-            console.log(
-                "[PROFILE-CREATE-10] Profile created ✓"
-            );
-
-            console.log(
-                "[PROFILE-CREATE-11] profile_id:",
-                profileId
-            );
-
-            // Insert body profile
-            console.log(
-                "[PROFILE-CREATE-12] Creating body profile..."
-            );
-
+            // Create body profile
             await connection.query(
                 `
                 INSERT INTO body_profile
@@ -688,9 +399,7 @@ app.post(
                     hip_cm,
                     target_weight_kg
                 )
-                VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?
-                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `,
                 [
                     profileId,
@@ -705,21 +414,10 @@ app.post(
                 ]
             );
 
-            console.log(
-                "[PROFILE-CREATE-13] Body profile created ✓"
-            );
-
             let weightRecord = null;
 
-            // Save first weight
-            if (
-                currentWeight !== null
-            ) {
-
-                console.log(
-                    "[PROFILE-CREATE-14] Creating initial weight record..."
-                );
-
+            // Save initial weight if provided
+            if (currentWeight !== null) {
                 const bmi =
                     calculateBMI(
                         currentWeight,
@@ -746,9 +444,7 @@ app.post(
                             body_fat_percentage,
                             recorded_date
                         )
-                        VALUES (
-                            ?, ?, ?, ?, CURDATE()
-                        )
+                        VALUES (?, ?, ?, ?, CURDATE())
                         `,
                         [
                             profileId,
@@ -775,25 +471,11 @@ app.post(
                     body_fat_percentage:
                         bodyFat
                 };
-
-                console.log(
-                    "[PROFILE-CREATE-15] Initial weight record saved ✓"
-                );
             }
 
             await connection.commit();
 
-            console.log(
-                "[PROFILE-CREATE-16] Transaction committed ✓"
-            );
-
-            const healthyRange =
-                calculateHealthyWeightRange(
-                    height
-                );
-
             res.status(201).json({
-
                 message:
                     "Profile created successfully",
 
@@ -801,7 +483,9 @@ app.post(
                     profileId,
 
                 healthy_weight_range:
-                    healthyRange,
+                    calculateHealthyWeightRange(
+                        height
+                    ),
 
                 initial_weight_record:
                     weightRecord
@@ -810,7 +494,6 @@ app.post(
         } catch (error) {
 
             if (connection) {
-
                 try {
                     await connection.rollback();
                 } catch {
@@ -818,34 +501,12 @@ app.post(
                 }
             }
 
-            console.error(
-                "[PROFILE-CREATE-ERROR] Failed ✗"
-            );
-
-            console.error(
-                "Code:",
-                error.code
-            );
-
-            console.error(
-                "Message:",
-                error.message
-            );
-
-            res.status(500).json({
-                error:
-                    "Failed to create profile"
-            });
+            next(error);
 
         } finally {
 
             if (connection) {
-
                 connection.release();
-
-                console.log(
-                    "[PROFILE-CREATE] Connection released"
-                );
             }
         }
     }
@@ -857,471 +518,256 @@ app.post(
 
 app.get(
     "/api/users/:userId/profiles",
-    async (req, res) => {
 
-        console.log("\n==============================================");
-        console.log("[PROFILES-GET] Request received");
-        console.log("==============================================");
+    asyncHandler(async (req, res) => {
+        const userId =
+            Number(req.params.userId);
 
-        try {
-
-            const userId =
-                Number(
-                    req.params.userId
-                );
-
-            console.log(
-                "[PROFILES-GET-1] userId:",
-                userId
-            );
-
-            console.log(
-                "[PROFILES-GET-2] Running query..."
-            );
-
-            const rows =
-                await pool.query(
-                    `
-                    SELECT
-                        p.profile_id,
-                        p.user_id,
-                        p.profile_name,
-                        p.created_at,
-
-                        bp.dob,
-                        bp.gender,
-                        bp.height_cm,
-                        bp.waist_cm,
-                        bp.chest_cm,
-                        bp.neck_cm,
-                        bp.hip_cm,
-                        bp.target_weight_kg,
-
-                        (
-                            SELECT wr.weight_kg
-                            FROM weight_records wr
-                            WHERE
-                                wr.profile_id =
-                                p.profile_id
-                            ORDER BY
-                                wr.recorded_date DESC,
-                                wr.weight_id DESC
-                            LIMIT 1
-                        ) AS current_weight_kg
-
-                    FROM profiles p
-
-                    LEFT JOIN body_profile bp
-                        ON p.profile_id =
-                           bp.profile_id
-
-                    WHERE
-                        p.user_id = ?
-
-                    ORDER BY
-                        p.created_at ASC
-                    `,
-                    [userId]
-                );
-
-            console.log(
-                "[PROFILES-GET-3] Query successful ✓"
-            );
-
-            console.log(
-                "[PROFILES-GET-4] Profiles found:",
-                rows.length
-            );
-
-            const profiles =
-                rows.map(
-                    (profile) => ({
-
-                        ...profile,
-
-                        height_cm:
-                            profile.height_cm !== null
-                                ? Number(
-                                    profile.height_cm
-                                )
-                                : null,
-
-                        waist_cm:
-                            profile.waist_cm !== null
-                                ? Number(
-                                    profile.waist_cm
-                                )
-                                : null,
-
-                        chest_cm:
-                            profile.chest_cm !== null
-                                ? Number(
-                                    profile.chest_cm
-                                )
-                                : null,
-
-                        neck_cm:
-                            profile.neck_cm !== null
-                                ? Number(
-                                    profile.neck_cm
-                                )
-                                : null,
-
-                        hip_cm:
-                            profile.hip_cm !== null
-                                ? Number(
-                                    profile.hip_cm
-                                )
-                                : null,
-
-                        target_weight_kg:
-                            profile.target_weight_kg !== null
-                                ? Number(
-                                    profile.target_weight_kg
-                                )
-                                : null,
-
-                        current_weight_kg:
-                            profile.current_weight_kg !== null
-                                ? Number(
-                                    profile.current_weight_kg
-                                )
-                                : null
-                    })
-                );
-
-            res.json(profiles);
-
-        } catch (error) {
-
-            console.error(
-                "[PROFILES-GET-ERROR] Failed ✗"
-            );
-
-            console.error(
-                "Code:",
-                error.code
-            );
-
-            console.error(
-                "Message:",
-                error.message
-            );
-
-            res.status(500).json({
-                error:
-                    "Failed to get profiles"
+        if (!isValidId(userId)) {
+            return res.status(400).json({
+                error: "Invalid user ID"
             });
         }
-    }
+
+        const rows = await pool.query(
+            `
+            SELECT
+                p.profile_id,
+                p.user_id,
+                p.profile_name,
+                p.created_at,
+
+                bp.dob,
+                bp.gender,
+                bp.height_cm,
+                bp.waist_cm,
+                bp.chest_cm,
+                bp.neck_cm,
+                bp.hip_cm,
+                bp.target_weight_kg,
+
+                (
+                    SELECT wr.weight_kg
+                    FROM weight_records wr
+
+                    WHERE
+                        wr.profile_id =
+                        p.profile_id
+
+                    ORDER BY
+                        wr.recorded_date DESC,
+                        wr.weight_id DESC
+
+                    LIMIT 1
+                ) AS current_weight_kg
+
+            FROM profiles p
+
+            LEFT JOIN body_profile bp
+                ON p.profile_id =
+                   bp.profile_id
+
+            WHERE
+                p.user_id = ?
+
+            ORDER BY
+                p.created_at ASC
+            `,
+            [userId]
+        );
+
+        const profiles =
+            rows.map(normalizeProfile);
+
+        res.json(profiles);
+    })
 );
 
-// ============================================================
+// ------------------------------------------------------------
 // GET ONE PROFILE
-// ============================================================
+// ------------------------------------------------------------
 
 app.get(
     "/api/profiles/:profileId",
-    async (req, res) => {
 
-        console.log("\n==============================================");
-        console.log("[PROFILE-GET] Request received");
-        console.log("==============================================");
-
-        try {
-
-            const profileId =
-                Number(
-                    req.params.profileId
-                );
-
-            console.log(
-                "[PROFILE-GET-1] profileId:",
-                profileId
+    asyncHandler(async (req, res) => {
+        const profileId =
+            Number(
+                req.params.profileId
             );
 
-            if (
-                !Number.isInteger(profileId) ||
-                profileId <= 0
-            ) {
-                return res.status(400).json({
-                    error:
-                        "Invalid profile ID"
-                });
-            }
-
-            console.log(
-                "[PROFILE-GET-2] Running query..."
-            );
-
-            const rows =
-                await pool.query(
-                    `
-                    SELECT
-                        p.profile_id,
-                        p.user_id,
-                        p.profile_name,
-
-                        bp.dob,
-                        bp.gender,
-                        bp.height_cm,
-                        bp.waist_cm,
-                        bp.chest_cm,
-                        bp.neck_cm,
-                        bp.hip_cm,
-                        bp.target_weight_kg
-
-                    FROM profiles p
-
-                    JOIN body_profile bp
-                        ON p.profile_id =
-                           bp.profile_id
-
-                    WHERE
-                        p.profile_id = ?
-                    `,
-                    [profileId]
-                );
-
-            console.log(
-                "[PROFILE-GET-3] Query completed ✓"
-            );
-
-            if (
-                rows.length === 0
-            ) {
-                return res.status(404).json({
-                    error:
-                        "Profile not found"
-                });
-            }
-
-            const profile =
-                rows[0];
-
-            const height =
-                Number(
-                    profile.height_cm
-                );
-
-            const healthyRange =
-                calculateHealthyWeightRange(
-                    height
-                );
-
-            res.json({
-                ...profile,
-
-                height_cm:
-                    height,
-
-                waist_cm:
-                    profile.waist_cm !== null
-                        ? Number(
-                            profile.waist_cm
-                        )
-                        : null,
-
-                chest_cm:
-                    profile.chest_cm !== null
-                        ? Number(
-                            profile.chest_cm
-                        )
-                        : null,
-
-                neck_cm:
-                    profile.neck_cm !== null
-                        ? Number(
-                            profile.neck_cm
-                        )
-                        : null,
-
-                hip_cm:
-                    profile.hip_cm !== null
-                        ? Number(
-                            profile.hip_cm
-                        )
-                        : null,
-
-                target_weight_kg:
-                    profile.target_weight_kg !== null
-                        ? Number(
-                            profile.target_weight_kg
-                        )
-                        : null,
-
-                healthy_weight_range:
-                    healthyRange
-            });
-
-        } catch (error) {
-
-            console.error(
-                "[PROFILE-GET-ERROR] Failed ✗"
-            );
-
-            console.error(
-                "Code:",
-                error.code
-            );
-
-            console.error(
-                "Message:",
-                error.message
-            );
-
-            res.status(500).json({
+        if (!isValidId(profileId)) {
+            return res.status(400).json({
                 error:
-                    "Failed to get profile"
+                    "Invalid profile ID"
             });
         }
-    }
+
+        const rows =
+            await pool.query(
+                `
+                SELECT
+                    p.profile_id,
+                    p.user_id,
+                    p.profile_name,
+
+                    bp.dob,
+                    bp.gender,
+                    bp.height_cm,
+                    bp.waist_cm,
+                    bp.chest_cm,
+                    bp.neck_cm,
+                    bp.hip_cm,
+                    bp.target_weight_kg
+
+                FROM profiles p
+
+                JOIN body_profile bp
+                    ON p.profile_id =
+                       bp.profile_id
+
+                WHERE
+                    p.profile_id = ?
+                `,
+                [profileId]
+            );
+
+        if (rows.length === 0) {
+            return res.status(404).json({
+                error:
+                    "Profile not found"
+            });
+        }
+
+        const profile =
+            normalizeProfile(
+                rows[0]
+            );
+
+        const height =
+            Number(
+                profile.height_cm
+            );
+
+        res.json({
+            ...profile,
+
+            healthy_weight_range:
+                calculateHealthyWeightRange(
+                    height
+                )
+        });
+    })
 );
 
-// ============================================================
+// ------------------------------------------------------------
 // UPDATE BODY PROFILE
-// ============================================================
+// ------------------------------------------------------------
 
 app.put(
     "/api/profiles/:profileId",
-    async (req, res) => {
 
-        console.log("\n==============================================");
-        console.log("[PROFILE-UPDATE] Request received");
-        console.log("==============================================");
-
-        try {
-
-            const profileId =
-                Number(
-                    req.params.profileId
-                );
-
-            const {
-                profile_name,
-                dob,
-                gender,
-                height_cm,
-                waist_cm,
-                chest_cm,
-                neck_cm,
-                hip_cm,
-                target_weight_kg
-            } = req.body;
-
-            console.log(
-                "[PROFILE-UPDATE-1] profileId:",
-                profileId
+    asyncHandler(async (req, res) => {
+        const profileId =
+            Number(
+                req.params.profileId
             );
 
-            console.log(
-                "[PROFILE-UPDATE-2] Updating profile name..."
-            );
+        if (!isValidId(profileId)) {
+            return res.status(400).json({
+                error:
+                    "Invalid profile ID"
+            });
+        }
 
-            if (profile_name) {
+        const {
+            profile_name,
+            dob,
+            gender,
+            height_cm,
+            waist_cm,
+            chest_cm,
+            neck_cm,
+            hip_cm,
+            target_weight_kg
+        } = req.body;
 
-                await pool.query(
-                    `
-                    UPDATE profiles
-                    SET profile_name = ?
-                    WHERE profile_id = ?
-                    `,
-                    [
-                        profile_name.trim(),
-                        profileId
-                    ]
-                );
-
-                console.log(
-                    "[PROFILE-UPDATE-3] Name updated ✓"
-                );
-            }
-
-            console.log(
-                "[PROFILE-UPDATE-4] Updating body information..."
-            );
-
+        if (profile_name) {
             await pool.query(
                 `
-                UPDATE body_profile
-                SET
-                    dob =
-                        COALESCE(?, dob),
-
-                    gender =
-                        COALESCE(?, gender),
-
-                    height_cm =
-                        COALESCE(?, height_cm),
-
-                    waist_cm =
-                        COALESCE(?, waist_cm),
-
-                    chest_cm =
-                        COALESCE(?, chest_cm),
-
-                    neck_cm =
-                        COALESCE(?, neck_cm),
-
-                    hip_cm =
-                        COALESCE(?, hip_cm),
-
-                    target_weight_kg =
-                        COALESCE(
-                            ?,
-                            target_weight_kg
-                        )
-
-                WHERE
-                    profile_id = ?
+                UPDATE profiles
+                SET profile_name = ?
+                WHERE profile_id = ?
                 `,
                 [
-                    dob || null,
-                    gender
-                        ? gender.toLowerCase()
-                        : null,
-
-                    height_cm || null,
-                    waist_cm || null,
-                    chest_cm || null,
-                    neck_cm || null,
-                    hip_cm || null,
-                    target_weight_kg || null,
+                    profile_name.trim(),
                     profileId
                 ]
             );
-
-            console.log(
-                "[PROFILE-UPDATE-5] Body information updated ✓"
-            );
-
-            res.json({
-                message:
-                    "Profile updated successfully"
-            });
-
-        } catch (error) {
-
-            console.error(
-                "[PROFILE-UPDATE-ERROR] Failed ✗"
-            );
-
-            console.error(
-                "Code:",
-                error.code
-            );
-
-            console.error(
-                "Message:",
-                error.message
-            );
-
-            res.status(500).json({
-                error:
-                    "Failed to update profile"
-            });
         }
-    }
+
+        await pool.query(
+            `
+            UPDATE body_profile
+
+            SET
+                dob =
+                    COALESCE(?, dob),
+
+                gender =
+                    COALESCE(?, gender),
+
+                height_cm =
+                    COALESCE(?, height_cm),
+
+                waist_cm =
+                    COALESCE(?, waist_cm),
+
+                chest_cm =
+                    COALESCE(?, chest_cm),
+
+                neck_cm =
+                    COALESCE(?, neck_cm),
+
+                hip_cm =
+                    COALESCE(?, hip_cm),
+
+                target_weight_kg =
+                    COALESCE(
+                        ?,
+                        target_weight_kg
+                    )
+
+            WHERE
+                profile_id = ?
+            `,
+            [
+                dob || null,
+
+                gender
+                    ? gender
+                        .trim()
+                        .toLowerCase()
+                    : null,
+
+                numberOrNull(height_cm),
+                numberOrNull(waist_cm),
+                numberOrNull(chest_cm),
+                numberOrNull(neck_cm),
+                numberOrNull(hip_cm),
+                numberOrNull(
+                    target_weight_kg
+                ),
+
+                profileId
+            ]
+        );
+
+        res.json({
+            message:
+                "Profile updated successfully"
+        });
+    })
 );
 
 // ============================================================
@@ -1334,299 +780,216 @@ app.put(
 
 app.post(
     "/api/profiles/:profileId/weight-records",
-    async (req, res) => {
 
-        console.log("\n==============================================");
-        console.log("[WEIGHT-CREATE] Request received");
-        console.log("==============================================");
-
-        try {
-
-            const profileId =
-                Number(
-                    req.params.profileId
-                );
-
-            const {
-                weight_kg,
-                waist_cm,
-                chest_cm,
-                neck_cm,
-                hip_cm,
-                recorded_date
-            } = req.body;
-
-            console.log(
-                "[WEIGHT-CREATE-1] profileId:",
-                profileId
+    asyncHandler(async (req, res) => {
+        const profileId =
+            Number(
+                req.params.profileId
             );
 
-            console.log(
-                "[WEIGHT-CREATE-2] weight:",
+        const {
+            weight_kg,
+            waist_cm,
+            chest_cm,
+            neck_cm,
+            hip_cm,
+            recorded_date
+        } = req.body;
+
+        if (!isValidId(profileId)) {
+            return res.status(400).json({
+                error:
+                    "Invalid profile ID"
+            });
+        }
+
+        if (
+            !isPositiveNumber(
                 weight_kg
-            );
+            )
+        ) {
+            return res.status(400).json({
+                error:
+                    "Valid weight is required"
+            });
+        }
 
-            if (
-                !Number.isInteger(profileId) ||
-                profileId <= 0
-            ) {
-                return res.status(400).json({
-                    error:
-                        "Invalid profile ID"
-                });
-            }
-
-            if (
-                !isPositiveNumber(weight_kg)
-            ) {
-                return res.status(400).json({
-                    error:
-                        "Valid weight is required"
-                });
-            }
-
-            console.log(
-                "[WEIGHT-CREATE-3] Loading body profile..."
-            );
-
-            const profileRows =
-                await pool.query(
-                    `
-                    SELECT
-                        gender,
-                        height_cm,
-                        waist_cm,
-                        chest_cm,
-                        neck_cm,
-                        hip_cm
-
-                    FROM body_profile
-
-                    WHERE
-                        profile_id = ?
-                    `,
-                    [profileId]
-                );
-
-            console.log(
-                "[WEIGHT-CREATE-4] Profile query successful ✓"
-            );
-
-            if (
-                profileRows.length === 0
-            ) {
-                return res.status(404).json({
-                    error:
-                        "Profile not found"
-                });
-            }
-
-            const profile =
-                profileRows[0];
-
-            const height =
-                Number(
-                    profile.height_cm
-                );
-
-            const waist =
-                waist_cm !== undefined &&
-                    waist_cm !== ""
-                    ? Number(waist_cm)
-                    : profile.waist_cm !== null
-                        ? Number(
-                            profile.waist_cm
-                        )
-                        : null;
-
-            const chest =
-                chest_cm !== undefined &&
-                    chest_cm !== ""
-                    ? Number(chest_cm)
-                    : profile.chest_cm !== null
-                        ? Number(
-                            profile.chest_cm
-                        )
-                        : null;
-
-            const neck =
-                neck_cm !== undefined &&
-                    neck_cm !== ""
-                    ? Number(neck_cm)
-                    : profile.neck_cm !== null
-                        ? Number(
-                            profile.neck_cm
-                        )
-                        : null;
-
-            const hip =
-                hip_cm !== undefined &&
-                    hip_cm !== ""
-                    ? Number(hip_cm)
-                    : profile.hip_cm !== null
-                        ? Number(
-                            profile.hip_cm
-                        )
-                        : null;
-
-            const weight =
-                Number(weight_kg);
-
-            console.log(
-                "[WEIGHT-CREATE-5] Calculating BMI..."
-            );
-
-            const bmi =
-                calculateBMI(
-                    weight,
-                    height
-                );
-
-            console.log(
-                "[WEIGHT-CREATE-6] BMI:",
-                bmi
-            );
-
-            console.log(
-                "[WEIGHT-CREATE-7] Calculating body fat..."
-            );
-
-            const bodyFat =
-                calculateBodyFat(
-                    profile.gender,
-                    height,
-                    waist,
-                    neck,
-                    hip
-                );
-
-            console.log(
-                "[WEIGHT-CREATE-8] Body fat:",
-                bodyFat
-            );
-
-            // Update latest measurements
-            console.log(
-                "[WEIGHT-CREATE-9] Updating body measurements..."
-            );
-
+        const profileRows =
             await pool.query(
                 `
-                UPDATE body_profile
-                SET
-                    waist_cm = ?,
-                    chest_cm = ?,
-                    neck_cm = ?,
-                    hip_cm = ?
+                SELECT
+                    gender,
+                    height_cm,
+                    waist_cm,
+                    chest_cm,
+                    neck_cm,
+                    hip_cm
+
+                FROM body_profile
+
                 WHERE
                     profile_id = ?
                 `,
+                [profileId]
+            );
+
+        if (
+            profileRows.length === 0
+        ) {
+            return res.status(404).json({
+                error:
+                    "Profile not found"
+            });
+        }
+
+        const profile =
+            profileRows[0];
+
+        const height =
+            Number(
+                profile.height_cm
+            );
+
+        const weight =
+            Number(weight_kg);
+
+        const waist =
+            waist_cm !== undefined &&
+            waist_cm !== ""
+                ? Number(waist_cm)
+                : numberOrNull(
+                    profile.waist_cm
+                );
+
+        const chest =
+            chest_cm !== undefined &&
+            chest_cm !== ""
+                ? Number(chest_cm)
+                : numberOrNull(
+                    profile.chest_cm
+                );
+
+        const neck =
+            neck_cm !== undefined &&
+            neck_cm !== ""
+                ? Number(neck_cm)
+                : numberOrNull(
+                    profile.neck_cm
+                );
+
+        const hip =
+            hip_cm !== undefined &&
+            hip_cm !== ""
+                ? Number(hip_cm)
+                : numberOrNull(
+                    profile.hip_cm
+                );
+
+        const bmi =
+            calculateBMI(
+                weight,
+                height
+            );
+
+        const bodyFat =
+            calculateBodyFat(
+                profile.gender,
+                height,
+                waist,
+                neck,
+                hip
+            );
+
+        // Update latest measurements
+        await pool.query(
+            `
+            UPDATE body_profile
+
+            SET
+                waist_cm = ?,
+                chest_cm = ?,
+                neck_cm = ?,
+                hip_cm = ?
+
+            WHERE
+                profile_id = ?
+            `,
+            [
+                waist,
+                chest,
+                neck,
+                hip,
+                profileId
+            ]
+        );
+
+        // Insert new weight
+        const result =
+            await pool.query(
+                `
+                INSERT INTO weight_records
+                (
+                    profile_id,
+                    weight_kg,
+                    bmi,
+                    body_fat_percentage,
+                    recorded_date
+                )
+
+                VALUES
+                (
+                    ?,
+                    ?,
+                    ?,
+                    ?,
+                    COALESCE(
+                        ?,
+                        CURDATE()
+                    )
+                )
+                `,
                 [
-                    waist,
-                    chest,
-                    neck,
-                    hip,
-                    profileId
+                    profileId,
+                    weight,
+                    bmi,
+                    bodyFat,
+                    recorded_date || null
                 ]
             );
 
-            console.log(
-                "[WEIGHT-CREATE-10] Measurements updated ✓"
-            );
+        res.status(201).json({
+            message:
+                "Weight recorded successfully",
 
-            console.log(
-                "[WEIGHT-CREATE-11] Inserting weight record..."
-            );
+            record: {
 
-            const result =
-                await pool.query(
-                    `
-                    INSERT INTO weight_records
-                    (
-                        profile_id,
-                        weight_kg,
-                        bmi,
-                        body_fat_percentage,
-                        recorded_date
-                    )
-                    VALUES (
-                        ?, ?, ?, ?,
-                        COALESCE(
-                            ?,
-                            CURDATE()
-                        )
-                    )
-                    `,
-                    [
-                        profileId,
-                        weight,
-                        bmi,
-                        bodyFat,
-                        recorded_date ||
-                        null
-                    ]
-                );
+                weight_id:
+                    Number(
+                        result.insertId
+                    ),
 
-            console.log(
-                "[WEIGHT-CREATE-12] Weight record saved ✓"
-            );
+                profile_id:
+                    profileId,
 
-            res.status(201).json({
+                weight_kg:
+                    weight,
 
-                message:
-                    "Weight recorded successfully",
+                bmi,
 
-                record: {
+                bmi_category:
+                    getBMICategory(bmi),
 
-                    weight_id:
-                        Number(
-                            result.insertId
-                        ),
+                body_fat_percentage:
+                    bodyFat,
 
-                    profile_id:
-                        profileId,
-
-                    weight_kg:
-                        weight,
-
-                    bmi,
-
-                    bmi_category:
-                        getBMICategory(bmi),
-
-                    body_fat_percentage:
-                        bodyFat,
-
-                    recorded_date:
-                        recorded_date ||
-                        new Date()
-                            .toISOString()
-                            .slice(0, 10)
-                }
-            });
-
-        } catch (error) {
-
-            console.error(
-                "[WEIGHT-CREATE-ERROR] Failed ✗"
-            );
-
-            console.error(
-                "Code:",
-                error.code
-            );
-
-            console.error(
-                "Message:",
-                error.message
-            );
-
-            res.status(500).json({
-                error:
-                    "Failed to save weight record"
-            });
-        }
-    }
+                recorded_date:
+                    recorded_date ||
+                    new Date()
+                        .toISOString()
+                        .slice(0, 10)
+            }
+        });
+    })
 );
 
 // ------------------------------------------------------------
@@ -1636,117 +999,76 @@ app.post(
 
 app.get(
     "/api/profiles/:profileId/weight-records",
-    async (req, res) => {
 
-        console.log("\n==============================================");
-        console.log("[WEIGHT-HISTORY] Request received");
-        console.log("==============================================");
-
-        try {
-
-            const profileId =
-                Number(
-                    req.params.profileId
-                );
-
-            console.log(
-                "[WEIGHT-HISTORY-1] profileId:",
-                profileId
+    asyncHandler(async (req, res) => {
+        const profileId =
+            Number(
+                req.params.profileId
             );
 
-            console.log(
-                "[WEIGHT-HISTORY-2] Running SELECT query..."
-            );
-
-            const rows =
-                await pool.query(
-                    `
-                    SELECT
-                        weight_id,
-                        profile_id,
-                        weight_kg,
-                        bmi,
-                        body_fat_percentage,
-                        recorded_date,
-                        created_at
-
-                    FROM weight_records
-
-                    WHERE
-                        profile_id = ?
-
-                    ORDER BY
-                        recorded_date ASC,
-                        weight_id ASC
-                    `,
-                    [profileId]
-                );
-
-            console.log(
-                "[WEIGHT-HISTORY-3] Query successful ✓"
-            );
-
-            console.log(
-                "[WEIGHT-HISTORY-4] Records found:",
-                rows.length
-            );
-
-            const records =
-                rows.map(
-                    (row) => ({
-
-                        ...row,
-
-                        weight_kg:
-                            Number(
-                                row.weight_kg
-                            ),
-
-                        bmi:
-                            row.bmi !== null
-                                ? Number(row.bmi)
-                                : null,
-
-                        body_fat_percentage:
-                            row.body_fat_percentage !== null
-                                ? Number(
-                                    row.body_fat_percentage
-                                )
-                                : null,
-
-                        bmi_category:
-                            row.bmi !== null
-                                ? getBMICategory(
-                                    Number(row.bmi)
-                                )
-                                : null
-                    })
-                );
-
-            res.json(records);
-
-        } catch (error) {
-
-            console.error(
-                "[WEIGHT-HISTORY-ERROR] Failed ✗"
-            );
-
-            console.error(
-                "Code:",
-                error.code
-            );
-
-            console.error(
-                "Message:",
-                error.message
-            );
-
-            res.status(500).json({
+        if (!isValidId(profileId)) {
+            return res.status(400).json({
                 error:
-                    "Failed to get weight history"
+                    "Invalid profile ID"
             });
         }
-    }
+
+        const rows =
+            await pool.query(
+                `
+                SELECT
+                    weight_id,
+                    profile_id,
+                    weight_kg,
+                    bmi,
+                    body_fat_percentage,
+                    recorded_date,
+                    created_at
+
+                FROM weight_records
+
+                WHERE
+                    profile_id = ?
+
+                ORDER BY
+                    recorded_date ASC,
+                    weight_id ASC
+                `,
+                [profileId]
+            );
+
+        const records =
+            rows.map((row) => ({
+
+                ...row,
+
+                weight_kg:
+                    Number(
+                        row.weight_kg
+                    ),
+
+                bmi:
+                    numberOrNull(
+                        row.bmi
+                    ),
+
+                body_fat_percentage:
+                    numberOrNull(
+                        row.body_fat_percentage
+                    ),
+
+                bmi_category:
+                    row.bmi !== null
+                        ? getBMICategory(
+                            Number(
+                                row.bmi
+                            )
+                        )
+                        : null
+            }));
+
+        res.json(records);
+    })
 );
 
 // ============================================================
@@ -1755,81 +1077,43 @@ app.get(
 
 app.delete(
     "/api/profiles/:profileId",
-    async (req, res) => {
 
-        console.log("\n==============================================");
-        console.log("[PROFILE-DELETE] Request received");
-        console.log("==============================================");
-
-        try {
-
-            const profileId =
-                Number(
-                    req.params.profileId
-                );
-
-            console.log(
-                "[PROFILE-DELETE-1] profileId:",
-                profileId
+    asyncHandler(async (req, res) => {
+        const profileId =
+            Number(
+                req.params.profileId
             );
 
-            console.log(
-                "[PROFILE-DELETE-2] Running DELETE query..."
-            );
-
-            const result =
-                await pool.query(
-                    `
-                    DELETE FROM profiles
-                    WHERE profile_id = ?
-                    `,
-                    [profileId]
-                );
-
-            console.log(
-                "[PROFILE-DELETE-3] DELETE completed ✓"
-            );
-
-            if (
-                result.affectedRows === 0
-            ) {
-                return res.status(404).json({
-                    error:
-                        "Profile not found"
-                });
-            }
-
-            console.log(
-                "[PROFILE-DELETE-4] Related body/weight records removed by CASCADE ✓"
-            );
-
-            res.json({
-                message:
-                    "Profile deleted successfully"
-            });
-
-        } catch (error) {
-
-            console.error(
-                "[PROFILE-DELETE-ERROR] Failed ✗"
-            );
-
-            console.error(
-                "Code:",
-                error.code
-            );
-
-            console.error(
-                "Message:",
-                error.message
-            );
-
-            res.status(500).json({
+        if (!isValidId(profileId)) {
+            return res.status(400).json({
                 error:
-                    "Failed to delete profile"
+                    "Invalid profile ID"
             });
         }
-    }
+
+        const result =
+            await pool.query(
+                `
+                DELETE FROM profiles
+                WHERE profile_id = ?
+                `,
+                [profileId]
+            );
+
+        if (
+            result.affectedRows === 0
+        ) {
+            return res.status(404).json({
+                error:
+                    "Profile not found"
+            });
+        }
+
+        res.json({
+            message:
+                "Profile deleted successfully"
+        });
+    })
 );
 
 // ============================================================
@@ -1837,15 +1121,18 @@ app.delete(
 // ============================================================
 
 app.use((req, res) => {
-
-    console.log(
-        `[404] ${req.method} ${req.originalUrl}`
-    );
-
     res.status(404).json({
-        error: "API route not found"
+        error:
+            "API route not found"
     });
 });
+
+// ============================================================
+// ERROR HANDLER
+// IMPORTANT: Error middleware must be after all routes
+// ============================================================
+
+app.use(errorHandler);
 
 // ============================================================
 // START SERVER
@@ -1855,15 +1142,12 @@ app.listen(
     PORT,
     "0.0.0.0",
     () => {
+        console.log(
+            `Weight Tracker server running at http://localhost:${PORT}`
+        );
 
-        console.log("\n==============================================");
-        console.log("WEIGHT TRACKER SERVER READY ✓");
         console.log(
-            `http://localhost:${PORT}`
+            `Health check: http://localhost:${PORT}/api/health`
         );
-        console.log(
-            `Health: http://localhost:${PORT}/api/health`
-        );
-        console.log("==============================================\n");
     }
 );

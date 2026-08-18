@@ -9,6 +9,14 @@ CREATE DATABASE IF NOT EXISTS fullstack_demo
 
 USE fullstack_demo;
 
+--  Create user
+CREATE OR REPLACE USER 'fr-project-1'@'%' IDENTIFIED BY 'UGFzc3dvcmQxIQ==';
+GRANT ALL PRIVILEGES ON fullstack_demo.* TO 'fr-project-1'@'%';
+
+FLUSH PRIVILEGES;
+
+SHOW GRANTS FOR 'fr-project-1'@'%';
+
 -- ============================================================
 -- 1. USERS TABLE
 -- One main user can own multiple profiles.

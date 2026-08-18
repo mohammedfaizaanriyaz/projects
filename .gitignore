@@ -15,8 +15,13 @@ hs_err_pid*
 replay_pid*
 
 
-# Environment variables
+# env files
 .env
+.env.*
+*.env
+!.env.example
+!*.example.env
+
 ### Node
 # Dependencies
 node_modules/

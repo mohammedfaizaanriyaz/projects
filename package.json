@@ -1,0 +1,16 @@
+{
+  "name": "fr_project_1",
+  "version": "1.0.0",
+  "description": "Faizaan Project 1",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}

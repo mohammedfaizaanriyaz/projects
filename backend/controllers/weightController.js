@@ -1,3 +1,7 @@
+const {
+    isValidDateString
+} = require("../utils/dateUtils");
+
 const weightService =
     require("../services/weightService");
 
@@ -39,7 +43,21 @@ const createWeightRecord = async (
         // Validate profile ID
         if (!isValidId(profileId)) {
             return res.status(400).json({
-                error: "Invalid profile ID"
+                error:
+                    "Invalid profile ID"
+            });
+        }
+
+        // Validate recorded date
+        if (
+            recorded_date &&
+            !isValidDateString(
+                recorded_date
+            )
+        ) {
+            return res.status(400).json({
+                error:
+                    "Recorded date must be a valid YYYY-MM-DD date"
             });
         }
 
@@ -51,25 +69,59 @@ const createWeightRecord = async (
             });
         }
 
+        // Validate optional measurements
+        const measurements = {
+            waist_cm,
+            chest_cm,
+            neck_cm,
+            hip_cm
+        };
+
+        for (
+            const [name, value]
+            of Object.entries(
+                measurements
+            )
+        ) {
+            if (
+                value !== undefined &&
+                value !== null &&
+                value !== "" &&
+                !isPositiveNumber(value)
+            ) {
+                return res.status(400).json({
+                    error:
+                        `${name} must be a positive number`
+                });
+            }
+        }
+
         // Get existing body profile
         const profile =
             await weightService
-                .getBodyProfile(profileId);
+                .getBodyProfile(
+                    profileId
+                );
 
         if (!profile) {
             return res.status(404).json({
-                error: "Profile not found"
+                error:
+                    "Profile not found"
             });
         }
 
         const height =
-            Number(profile.height_cm);
+            Number(
+                profile.height_cm
+            );
 
         const weight =
-            Number(weight_kg);
+            Number(
+                weight_kg
+            );
 
-        // Use new measurement if supplied.
-        // Otherwise use existing value.
+        // Use new value if supplied,
+        // otherwise keep existing value
         const waist =
             newOrExisting(
                 waist_cm,
@@ -111,7 +163,7 @@ const createWeightRecord = async (
                 hip
             );
 
-        // Save measurements and weight
+        // Save weight record
         const weightId =
             await weightService
                 .saveWeightRecord({
@@ -124,44 +176,48 @@ const createWeightRecord = async (
                     neck,
                     hip,
                     recordedDate:
-                        recorded_date || null
+                        recorded_date ||
+                        null
                 });
 
-        return res.status(201).json({
-            message:
-                "Weight recorded successfully",
+        return res
+            .status(201)
+            .json({
+                message:
+                    "Weight recorded successfully",
 
-            record: {
-                weight_id:
-                    weightId,
+                record: {
+                    weight_id:
+                        weightId,
 
-                profile_id:
-                    profileId,
+                    profile_id:
+                        profileId,
 
-                weight_kg:
-                    weight,
+                    weight_kg:
+                        weight,
 
-                bmi,
+                    bmi,
 
-                bmi_category:
-                    getBMICategory(bmi),
+                    bmi_category:
+                        getBMICategory(
+                            bmi
+                        ),
 
-                body_fat_percentage:
-                    bodyFat,
+                    body_fat_percentage:
+                        bodyFat,
 
-                recorded_date:
-                    recorded_date ||
-                    new Date()
-                        .toISOString()
-                        .slice(0, 10)
-            }
-        });
+                    recorded_date:
+                        recorded_date ||
+                        new Date()
+                            .toISOString()
+                            .slice(0, 10)
+                }
+            });
 
     } catch (error) {
         next(error);
     }
 };
-
 // ============================================================
 // GET WEIGHT HISTORY
 // ============================================================

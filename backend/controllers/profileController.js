@@ -1,10 +1,15 @@
+const {
+    isValidDateString
+} = require("../utils/dateUtils");
+
 const profileService =
     require("../services/profileService");
 
 const {
     isPositiveNumber,
     isValidId,
-    numberOrNull
+    numberOrNull,
+    positiveNumberOrNull
 } = require("../utils/numberUtils");
 
 const {
@@ -13,6 +18,7 @@ const {
     calculateHealthyWeightRange,
     calculateBodyFat
 } = require("../utils/healthCalculations");
+
 
 // ============================================================
 // HELPER: NORMALIZE PROFILE NUMBERS
@@ -23,19 +29,29 @@ function normalizeProfile(profile) {
         ...profile,
 
         height_cm:
-            numberOrNull(profile.height_cm),
+            numberOrNull(
+                profile.height_cm
+            ),
 
         waist_cm:
-            numberOrNull(profile.waist_cm),
+            numberOrNull(
+                profile.waist_cm
+            ),
 
         chest_cm:
-            numberOrNull(profile.chest_cm),
+            numberOrNull(
+                profile.chest_cm
+            ),
 
         neck_cm:
-            numberOrNull(profile.neck_cm),
+            numberOrNull(
+                profile.neck_cm
+            ),
 
         hip_cm:
-            numberOrNull(profile.hip_cm),
+            numberOrNull(
+                profile.hip_cm
+            ),
 
         target_weight_kg:
             numberOrNull(
@@ -49,6 +65,7 @@ function normalizeProfile(profile) {
     };
 }
 
+
 // ============================================================
 // CREATE PROFILE
 // ============================================================
@@ -60,7 +77,9 @@ const createProfile = async (
 ) => {
     try {
         const userId =
-            Number(req.params.userId);
+            Number(
+                req.params.userId
+            );
 
         const {
             profile_name,
@@ -75,76 +94,139 @@ const createProfile = async (
             target_weight_kg
         } = req.body;
 
-        // Validate user ID
+
+        // ====================================================
+        // VALIDATE USER ID
+        // ====================================================
+
         if (!isValidId(userId)) {
-            return res.status(400).json({
-                error: "Invalid user ID"
-            });
+            return res
+                .status(400)
+                .json({
+                    error:
+                        "Invalid user ID"
+                });
         }
 
-        // Required fields
+
+        // ====================================================
+        // REQUIRED FIELDS
+        // ====================================================
+
         if (
             !profile_name ||
             !dob ||
             !gender ||
-            !isPositiveNumber(height_cm)
+            !isPositiveNumber(
+                height_cm
+            )
         ) {
-            return res.status(400).json({
-                error:
-                    "Profile name, DOB, gender and height are required"
-            });
+            return res
+                .status(400)
+                .json({
+                    error:
+                        "Profile name, DOB, gender and height are required"
+                });
         }
 
-        // Normalize gender
+
+        // ====================================================
+        // VALIDATE DOB
+        // ====================================================
+
+        if (
+            !isValidDateString(
+                dob
+            )
+        ) {
+            return res
+                .status(400)
+                .json({
+                    error:
+                        "DOB must be a valid date in YYYY-MM-DD format"
+                });
+        }
+
+
+        // ====================================================
+        // NORMALIZE GENDER
+        // ====================================================
+
         const normalizedGender =
             String(gender)
                 .trim()
                 .toLowerCase();
 
-        // Validate gender
+
+        // ====================================================
+        // VALIDATE GENDER
+        // ====================================================
+
         if (
             ![
                 "male",
                 "female"
-            ].includes(normalizedGender)
+            ].includes(
+                normalizedGender
+            )
         ) {
-            return res.status(400).json({
-                error:
-                    "Gender must be male or female"
-            });
+            return res
+                .status(400)
+                .json({
+                    error:
+                        "Gender must be male or female"
+                });
         }
+
+
+        // ====================================================
+        // NORMALIZE NUMERIC VALUES
+        // ====================================================
 
         const height =
             Number(height_cm);
 
         const waist =
-            numberOrNull(waist_cm);
+            positiveNumberOrNull(
+                waist_cm
+            );
 
         const chest =
-            numberOrNull(chest_cm);
+            positiveNumberOrNull(
+                chest_cm
+            );
 
         const neck =
-            numberOrNull(neck_cm);
+            positiveNumberOrNull(
+                neck_cm
+            );
 
         const hip =
-            numberOrNull(hip_cm);
+            positiveNumberOrNull(
+                hip_cm
+            );
 
         const currentWeight =
-            numberOrNull(
+            positiveNumberOrNull(
                 current_weight_kg
             );
 
         const targetWeight =
-            numberOrNull(
+            positiveNumberOrNull(
                 target_weight_kg
             );
+
+
+        // ====================================================
+        // CALCULATE HEALTH VALUES
+        // ====================================================
 
         let bmi = null;
         let bodyFat = null;
 
-        // Calculate health values
-        // only if current weight exists
-        if (currentWeight !== null) {
+        if (
+            currentWeight !== null
+        ) {
             bmi =
                 calculateBMI(
                     currentWeight,
@@ -161,14 +243,19 @@ const createProfile = async (
                 );
         }
 
-        // Ask service to create profile
+
+        // ====================================================
+        // CREATE PROFILE
+        // ====================================================
+
         const result =
             await profileService
                 .createProfile({
                     userId,
 
                     profileName:
-                        profile_name.trim(),
+                        profile_name
+                            .trim(),
 
                     dob,
 
@@ -176,29 +263,50 @@ const createProfile = async (
                         normalizedGender,
 
                     height,
+
                     waist,
+
                     chest,
+
                     neck,
+
                     hip,
 
                     currentWeight,
+
                     targetWeight,
 
                     bmi,
+
                     bodyFat
                 });
 
-        if (result.userNotFound) {
-            return res.status(404).json({
-                error:
-                    "Main user not found"
-            });
+
+        // ====================================================
+        // USER NOT FOUND
+        // ====================================================
+
+        if (
+            result.userNotFound
+        ) {
+            return res
+                .status(404)
+                .json({
+                    error:
+                        "Main user not found"
+                });
         }
+
+
+        // ====================================================
+        // INITIAL WEIGHT RECORD
+        // ====================================================
 
         const weightRecord =
             result.weightRecord
                 ? {
-                    ...result.weightRecord,
+                    ...result
+                        .weightRecord,
 
                     bmi_category:
                         getBMICategory(
@@ -209,26 +317,34 @@ const createProfile = async (
                 }
                 : null;
 
-        return res.status(201).json({
-            message:
-                "Profile created successfully",
 
-            profile_id:
-                result.profileId,
+        // ====================================================
+        // RESPONSE
+        // ====================================================
 
-            healthy_weight_range:
-                calculateHealthyWeightRange(
-                    height
-                ),
+        return res
+            .status(201)
+            .json({
+                message:
+                    "Profile created successfully",
 
-            initial_weight_record:
-                weightRecord
-        });
+                profile_id:
+                    result.profileId,
+
+                healthy_weight_range:
+                    calculateHealthyWeightRange(
+                        height
+                    ),
+
+                initial_weight_record:
+                    weightRecord
+            });
 
     } catch (error) {
         next(error);
     }
 };
+
 
 // ============================================================
 // GET ALL PROFILES OF USER
@@ -241,12 +357,17 @@ const getProfilesByUser = async (
 ) => {
     try {
         const userId =
-            Number(req.params.userId);
+            Number(
+                req.params.userId
+            );
 
         if (!isValidId(userId)) {
-            return res.status(400).json({
-                error: "Invalid user ID"
-            });
+            return res
+                .status(400)
+                .json({
+                    error:
+                        "Invalid user ID"
+                });
         }
 
         const rows =
@@ -256,16 +377,21 @@ const getProfilesByUser = async (
                 );
 
         const profiles =
-            rows.map(normalizeProfile);
+            rows.map(
+                normalizeProfile
+            );
 
-        return res.status(200).json(
-            profiles
-        );
+        return res
+            .status(200)
+            .json(
+                profiles
+            );
 
     } catch (error) {
         next(error);
     }
 };
+
 
 // ============================================================
 // GET ONE PROFILE
@@ -279,14 +405,21 @@ const getProfile = async (
     try {
         const profileId =
             Number(
-                req.params.profileId
+                req.params
+                    .profileId
             );
 
-        if (!isValidId(profileId)) {
-            return res.status(400).json({
-                error:
-                    "Invalid profile ID"
-            });
+        if (
+            !isValidId(
+                profileId
+            )
+        ) {
+            return res
+                .status(400)
+                .json({
+                    error:
+                        "Invalid profile ID"
+                });
         }
 
         const result =
@@ -296,28 +429,36 @@ const getProfile = async (
                 );
 
         if (!result) {
-            return res.status(404).json({
-                error:
-                    "Profile not found"
-            });
+            return res
+                .status(404)
+                .json({
+                    error:
+                        "Profile not found"
+                });
         }
 
         const profile =
-            normalizeProfile(result);
+            normalizeProfile(
+                result
+            );
 
-        return res.status(200).json({
-            ...profile,
+        return res
+            .status(200)
+            .json({
+                ...profile,
 
-            healthy_weight_range:
-                calculateHealthyWeightRange(
-                    profile.height_cm
-                )
-        });
+                healthy_weight_range:
+                    calculateHealthyWeightRange(
+                        profile
+                            .height_cm
+                    )
+            });
 
     } catch (error) {
         next(error);
     }
 };
+
 
 // ============================================================
 // UPDATE PROFILE
@@ -331,15 +472,23 @@ const updateProfile = async (
     try {
         const profileId =
             Number(
-                req.params.profileId
+                req.params
+                    .profileId
             );
 
-        if (!isValidId(profileId)) {
-            return res.status(400).json({
-                error:
-                    "Invalid profile ID"
-            });
+        if (
+            !isValidId(
+                profileId
+            )
+        ) {
+            return res
+                .status(400)
+                .json({
+                    error:
+                        "Invalid profile ID"
+                });
         }
+
 
         const {
             profile_name,
@@ -353,10 +502,37 @@ const updateProfile = async (
             target_weight_kg
         } = req.body;
 
-        // Validate gender if supplied
-        let normalizedGender = null;
 
-        if (gender !== undefined) {
+        // ====================================================
+        // VALIDATE DOB IF SUPPLIED
+        // ====================================================
+
+        if (
+            dob !== undefined &&
+            dob !== "" &&
+            !isValidDateString(
+                dob
+            )
+        ) {
+            return res
+                .status(400)
+                .json({
+                    error:
+                        "DOB must be a valid date in YYYY-MM-DD format"
+                });
+        }
+
+
+        // ====================================================
+        // VALIDATE GENDER IF SUPPLIED
+        // ====================================================
+
+        let normalizedGender =
+            null;
+
+        if (
+            gender !== undefined
+        ) {
             normalizedGender =
                 String(gender)
                     .trim()
@@ -379,22 +555,39 @@ const updateProfile = async (
             }
         }
 
-        // Validate height if supplied
+
+        // ====================================================
+        // VALIDATE HEIGHT IF SUPPLIED
+        // ====================================================
+
         if (
-            height_cm !== undefined &&
-            !isPositiveNumber(height_cm)
+            height_cm !==
+            undefined &&
+            !isPositiveNumber(
+                height_cm
+            )
         ) {
-            return res.status(400).json({
-                error:
-                    "Height must be a positive number"
-            });
+            return res
+                .status(400)
+                .json({
+                    error:
+                        "Height must be a positive number"
+                });
         }
 
-        // Update profile name
-        if (profile_name !== undefined) {
+
+        // ====================================================
+        // UPDATE PROFILE NAME
+        // ====================================================
+
+        if (
+            profile_name !==
+            undefined
+        ) {
             const cleanedName =
-                String(profile_name)
-                    .trim();
+                String(
+                    profile_name
+                ).trim();
 
             if (!cleanedName) {
                 return res
@@ -412,58 +605,128 @@ const updateProfile = async (
                 );
         }
 
-        // Update body profile
-        await profileService
-            .updateBodyProfile(
-                profileId,
-                {
-                    dob:
-                        dob || null,
 
-                    gender:
-                        normalizedGender,
+        // ====================================================
+        // PREPARE BODY PROFILE UPDATE
+        // ====================================================
 
-                    height:
-                        numberOrNull(
-                            height_cm
-                        ),
+        const bodyProfile = {};
 
-                    waist:
-                        numberOrNull(
-                            waist_cm
-                        ),
 
-                    chest:
-                        numberOrNull(
-                            chest_cm
-                        ),
+        if (
+            dob !== undefined
+        ) {
+            bodyProfile.dob =
+                dob === ""
+                    ? null
+                    : dob;
+        }
 
-                    neck:
-                        numberOrNull(
-                            neck_cm
-                        ),
 
-                    hip:
-                        numberOrNull(
-                            hip_cm
-                        ),
+        if (
+            gender !== undefined
+        ) {
+            bodyProfile.gender =
+                normalizedGender;
+        }
 
-                    targetWeight:
-                        numberOrNull(
-                            target_weight_kg
-                        )
-                }
-            );
 
-        return res.status(200).json({
-            message:
-                "Profile updated successfully"
-        });
+        if (
+            height_cm !==
+            undefined
+        ) {
+            bodyProfile.height =
+                Number(
+                    height_cm
+                );
+        }
+
+
+        if (
+            waist_cm !==
+            undefined
+        ) {
+            bodyProfile.waist =
+                positiveNumberOrNull(
+                    waist_cm
+                );
+        }
+
+
+        if (
+            chest_cm !==
+            undefined
+        ) {
+            bodyProfile.chest =
+                positiveNumberOrNull(
+                    chest_cm
+                );
+        }
+
+
+        if (
+            neck_cm !==
+            undefined
+        ) {
+            bodyProfile.neck =
+                positiveNumberOrNull(
+                    neck_cm
+                );
+        }
+
+
+        if (
+            hip_cm !==
+            undefined
+        ) {
+            bodyProfile.hip =
+                positiveNumberOrNull(
+                    hip_cm
+                );
+        }
+
+
+        if (
+            target_weight_kg !==
+            undefined
+        ) {
+            bodyProfile
+                .targetWeight =
+                positiveNumberOrNull(
+                    target_weight_kg
+                );
+        }
+
+
+        // ====================================================
+        // UPDATE BODY PROFILE
+        // ====================================================
+
+        if (
+            Object.keys(
+                bodyProfile
+            ).length > 0
+        ) {
+            await profileService
+                .updateBodyProfile(
+                    profileId,
+                    bodyProfile
+                );
+        }
+
+
+        return res
+            .status(200)
+            .json({
+                message:
+                    "Profile updated successfully"
+            });
 
     } catch (error) {
         next(error);
     }
 };
+
 
 // ============================================================
 // DELETE PROFILE
@@ -477,14 +740,21 @@ const deleteProfile = async (
     try {
         const profileId =
             Number(
-                req.params.profileId
+                req.params
+                    .profileId
             );
 
-        if (!isValidId(profileId)) {
-            return res.status(400).json({
-                error:
-                    "Invalid profile ID"
-            });
+        if (
+            !isValidId(
+                profileId
+            )
+        ) {
+            return res
+                .status(400)
+                .json({
+                    error:
+                        "Invalid profile ID"
+                });
         }
 
         const deleted =
@@ -494,21 +764,26 @@ const deleteProfile = async (
                 );
 
         if (!deleted) {
-            return res.status(404).json({
-                error:
-                    "Profile not found"
-            });
+            return res
+                .status(404)
+                .json({
+                    error:
+                        "Profile not found"
+                });
         }
 
-        return res.status(200).json({
-            message:
-                "Profile deleted successfully"
-        });
+        return res
+            .status(200)
+            .json({
+                message:
+                    "Profile deleted successfully"
+            });
 
     } catch (error) {
         next(error);
     }
 };
+
 
 // ============================================================
 // EXPORT CONTROLLERS

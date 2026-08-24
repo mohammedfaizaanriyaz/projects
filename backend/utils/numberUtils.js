@@ -20,6 +20,26 @@ function isValidId(value) {
 // CONVERT VALUE TO NUMBER OR NULL
 // ============================================================
 
+function numberOrNull(value) {
+    if (
+        value === undefined ||
+        value === null ||
+        value === ""
+    ) {
+        return null;
+    }
+
+    const number = Number(value);
+
+    return Number.isFinite(number)
+        ? number
+        : null;
+}
+
+// ============================================================
+// CONVERT POSITIVE VALUE TO NUMBER OR NULL
+// ============================================================
+
 function positiveNumberOrNull(value) {
     if (
         value === undefined ||
@@ -41,13 +61,6 @@ function positiveNumberOrNull(value) {
     return number;
 }
 
-module.exports = {
-    isPositiveNumber,
-    isValidId,
-    numberOrNull,
-    positiveNumberOrNull,
-    newOrExisting
-};
 // ============================================================
 // USE NEW VALUE OR EXISTING VALUE
 // ============================================================
@@ -71,9 +84,10 @@ function newOrExisting(
 // EXPORT
 // ============================================================
 
-export default {
+module.exports = {
     isPositiveNumber,
     isValidId,
     numberOrNull,
+    positiveNumberOrNull,
     newOrExisting
 };

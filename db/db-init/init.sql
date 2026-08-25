@@ -162,7 +162,89 @@ CREATE TABLE IF NOT EXISTS measurement_records (
         REFERENCES profiles(profile_id)
         ON DELETE CASCADE
 );
+-- ============================================================
+-- 6. TASK LISTS
+-- A user can create multiple custom lists.
+-- Examples:
+-- School, Programming, Morning Routine
+-- ============================================================
 
+CREATE TABLE IF NOT EXISTS task_lists (
+    list_id INT AUTO_INCREMENT PRIMARY KEY,
+
+    user_id INT NOT NULL,
+
+    list_name VARCHAR(120) NOT NULL,
+
+    list_type ENUM(
+        'todo',
+        'checklist'
+    )
+        NOT NULL
+        DEFAULT 'todo',
+
+    created_at TIMESTAMP
+        DEFAULT CURRENT_TIMESTAMP,
+
+    updated_at TIMESTAMP
+        DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (user_id)
+        REFERENCES users(user_id)
+        ON DELETE CASCADE,
+
+    INDEX idx_task_lists_user (
+        user_id
+    )
+);
+
+
+-- ============================================================
+-- 7. TASKS
+-- Tasks belonging to a task list.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS tasks (
+    task_id INT AUTO_INCREMENT PRIMARY KEY,
+
+    list_id INT NOT NULL,
+
+    title VARCHAR(200) NOT NULL,
+
+    description TEXT,
+
+    is_completed BOOLEAN
+        NOT NULL
+        DEFAULT FALSE,
+
+    time_limit_minutes INT,
+
+    due_at DATETIME,
+
+    reminder_at DATETIME,
+
+    completed_at DATETIME,
+
+    created_at TIMESTAMP
+        DEFAULT CURRENT_TIMESTAMP,
+
+    updated_at TIMESTAMP
+        DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (list_id)
+        REFERENCES task_lists(list_id)
+        ON DELETE CASCADE,
+
+    INDEX idx_tasks_list (
+        list_id
+    ),
+
+    INDEX idx_tasks_due (
+        due_at
+    )
+);
 
 -- ============================================================
 -- INDEXES

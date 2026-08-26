@@ -18,6 +18,11 @@ const userRoutes =
 
 const profileRoutes =
     require("./routes/profileRoutes");
+const {
+    startReminderWorker
+} = require(
+    "./workers/reminderWorker"
+);
 
 const app = express();
 
@@ -98,7 +103,6 @@ app.use(errorHandler);
 // ============================================================
 // START SERVER
 // ============================================================
-
 app.listen(
     PORT,
     "0.0.0.0",
@@ -110,5 +114,7 @@ app.listen(
         console.log(
             `Health check: http://localhost:${PORT}/api/health`
         );
+
+        startReminderWorker();
     }
 );

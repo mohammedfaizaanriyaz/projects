@@ -434,7 +434,62 @@ const deleteTask = async (
     );
 };
 
+// ============================================================
+// GET DUE REMINDERS
+// ============================================================
 
+const getDueReminders = async () => {
+
+    return pool.query(
+        `
+        SELECT
+            t.task_id,
+            t.list_id,
+            t.title,
+            t.description,
+            t.reminder_at,
+            tl.user_id,
+            tl.list_name
+
+        FROM tasks t
+
+        INNER JOIN task_lists tl
+            ON t.list_id = tl.list_id
+
+        WHERE
+            t.reminder_at IS NOT NULL
+            AND t.reminder_at <= NOW()
+            AND t.reminder_sent_at IS NULL
+            AND t.is_completed = FALSE
+
+        ORDER BY
+            t.reminder_at ASC
+        `
+    );
+};
+
+
+// ============================================================
+// MARK REMINDER AS SENT
+// ============================================================
+
+const markReminderAsSent = async (
+    taskId
+) => {
+
+    return pool.query(
+        `
+        UPDATE tasks
+
+        SET
+            reminder_sent_at = NOW()
+
+        WHERE
+            task_id = ?
+        `,
+        [taskId]
+    );
+};
 // ============================================================
 // EXPORT SERVICES
 // ============================================================
@@ -451,5 +506,8 @@ module.exports = {
     findTaskById,
     updateTask,
     updateTaskCompletion,
-    deleteTask
+    deleteTask,
+
+    getDueReminders,
+    markReminderAsSent
 };

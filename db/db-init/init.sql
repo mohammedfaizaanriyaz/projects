@@ -222,10 +222,11 @@ CREATE TABLE IF NOT EXISTS tasks (
 
     due_at DATETIME,
 
-    reminder_at DATETIME,
+reminder_at DATETIME,
 
-    completed_at DATETIME,
+reminder_sent_at DATETIME,
 
+completed_at DATETIME,
     created_at TIMESTAMP
         DEFAULT CURRENT_TIMESTAMP,
 

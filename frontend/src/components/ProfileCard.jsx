@@ -16,13 +16,9 @@ export default function ProfileCard({
     <article className="card">
       <div className="card-header">
         <div>
-          <span className="eyebrow">
-            BODY PROFILE
-          </span>
+          <span className="eyebrow">BODY PROFILE</span>
 
-          <h2>
-            Personal Details
-          </h2>
+          <h2>Personal Details</h2>
         </div>
 
         <div className="card-actions">
@@ -47,117 +43,59 @@ export default function ProfileCard({
 
       <div className="unit-selector detail-unit">
         <button
-          className={
-            lengthUnit ===
-            "cm"
-              ? "selected"
-              : ""
-          }
-          onClick={() =>
-            onLengthUnitChange(
-              "cm"
-            )
-          }
+          className={lengthUnit === "cm" ? "selected" : ""}
+          onClick={() => onLengthUnitChange("cm")}
         >
           cm
         </button>
 
         <button
-          className={
-            lengthUnit ===
-            "inch"
-              ? "selected"
-              : ""
-          }
-          onClick={() =>
-            onLengthUnitChange(
-              "inch"
-            )
-          }
+          className={lengthUnit === "inch" ? "selected" : ""}
+          onClick={() => onLengthUnitChange("inch")}
         >
           inch
         </button>
       </div>
 
       <div className="details-grid">
-        <Detail
-          name="Name"
-          value={
-            profile.profile_name
-          }
-        />
+        <Detail name="Name" value={profile.profile_name} />
 
-        <Detail
-          name="DOB"
-          value={formatFullDate(
-            profile.dob
-          )}
-        />
+        <Detail name="DOB" value={formatFullDate(profile.dob)} />
 
-        <Detail
-          name="Gender"
-          value={
-            profile.gender
-          }
-        />
+        <Detail name="Gender" value={profile.gender} />
 
         <Detail
           name="Height"
-          value={displayLength(
-            profile.height_cm,
-            lengthUnit
-          )}
+          value={displayLength(profile.height_cm, lengthUnit)}
         />
 
         <Detail
           name="Waist"
-          value={displayLength(
-            profile.waist_cm,
-            lengthUnit
-          )}
+          value={displayLength(profile.waist_cm, lengthUnit)}
         />
 
         <Detail
           name="Chest"
-          value={displayLength(
-            profile.chest_cm,
-            lengthUnit
-          )}
+          value={displayLength(profile.chest_cm, lengthUnit)}
         />
 
         <Detail
           name="Neck"
-          value={displayLength(
-            profile.neck_cm,
-            lengthUnit
-          )}
+          value={displayLength(profile.neck_cm, lengthUnit)}
         />
 
-        <Detail
-          name="Hip"
-          value={displayLength(
-            profile.hip_cm,
-            lengthUnit
-          )}
-        />
+        <Detail name="Hip" value={displayLength(profile.hip_cm, lengthUnit)} />
       </div>
     </article>
   );
 }
 
-function Detail({
-  name,
-  value,
-}) {
+function Detail({ name, value }) {
   return (
     <div className="detail">
-      <span>
-        {name}
-      </span>
+      <span>{name}</span>
 
-      <strong>
-        {value || "—"}
-      </strong>
+      <strong>{value || "—"}</strong>
     </div>
   );
 }
@@ -165,4 +103,3 @@ function Detail({
 // ============================================================
 // HISTORY
 // ============================================================
-

@@ -36,7 +36,9 @@ export default function StatsGrid({
         label="Body Fat"
         value={bodyFat !== null ? `${bodyFat.toFixed(1)}%` : "—"}
         icon={<Ruler />}
-        detail={bodyFat === null ? "Add waist & neck measurements" : "Latest estimate"}
+        detail={
+          bodyFat === null ? "Add waist & neck measurements" : "Latest estimate"
+        }
       />
 
       <Metric

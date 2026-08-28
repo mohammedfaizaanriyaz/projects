@@ -19,19 +19,11 @@ export function inchToCm(inch) {
 export function round(value, decimals = 2) {
   const power = 10 ** decimals;
 
-  return (
-    Math.round(
-      Number(value) * power
-    ) / power
-  );
+  return Math.round(Number(value) * power) / power;
 }
 
 export function weightToKg(value, unit) {
-  if (
-    value === "" ||
-    value === null ||
-    value === undefined
-  ) {
+  if (value === "" || value === null || value === undefined) {
     return null;
   }
 
@@ -49,11 +41,7 @@ export function weightToKg(value, unit) {
 }
 
 export function lengthToCm(value, unit) {
-  if (
-    value === "" ||
-    value === null ||
-    value === undefined
-  ) {
+  if (value === "" || value === null || value === undefined) {
     return null;
   }
 
@@ -69,69 +57,36 @@ export function lengthToCm(value, unit) {
 
   return round(number);
 }
-export function feetInchesToCm(
-  feet,
-  inches
-) {
-  const f =
-    Number(feet || 0);
+export function feetInchesToCm(feet, inches) {
+  const f = Number(feet || 0);
 
-  const i =
-    Number(inches || 0);
+  const i = Number(inches || 0);
 
-  return round(
-    (f * 12 + i) * 2.54
-  );
+  return round((f * 12 + i) * 2.54);
 }
 
-export function displayWeight(
-  kg,
-  unit
-) {
-  if (
-    kg === null ||
-    kg === undefined
-  ) {
+export function displayWeight(kg, unit) {
+  if (kg === null || kg === undefined) {
     return "—";
   }
 
   if (unit === "lbs") {
-    return `${round(
-      kgToLb(Number(kg)),
-      1
-    )} lbs`;
+    return `${round(kgToLb(Number(kg)), 1)} lbs`;
   }
 
-  return `${round(
-    Number(kg),
-    1
-  )} kg`;
+  return `${round(Number(kg), 1)} kg`;
 }
 
-export function displayLength(
-  cm,
-  unit
-) {
-  if (
-    cm === null ||
-    cm === undefined
-  ) {
+export function displayLength(cm, unit) {
+  if (cm === null || cm === undefined) {
     return "—";
   }
 
   if (unit === "inch") {
-    return `${round(
-      cmToInch(
-        Number(cm)
-      ),
-      1
-    )} in`;
+    return `${round(cmToInch(Number(cm)), 1)} in`;
   }
 
-  return `${round(
-    Number(cm),
-    1
-  )} cm`;
+  return `${round(Number(cm), 1)} cm`;
 }
 
 // ============================================================
@@ -146,63 +101,38 @@ export function dateValue(value) {
   return new Date(value);
 }
 
-export function formatShortDate(
-  value
-) {
-  const date =
-    dateValue(value);
+export function formatShortDate(value) {
+  const date = dateValue(value);
 
-  if (
-    !date ||
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
+  if (!date || Number.isNaN(date.getTime())) {
     return "";
   }
 
-  return date.toLocaleDateString(
-    "en-IN",
-    {
-      day: "2-digit",
-      month: "short",
-    }
-  );
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+  });
 }
 
-export function formatFullDate(
-  value
-) {
-  const date =
-    dateValue(value);
+export function formatFullDate(value) {
+  const date = dateValue(value);
 
-  if (
-    !date ||
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
+  if (!date || Number.isNaN(date.getTime())) {
     return "—";
   }
 
-  return date.toLocaleDateString(
-    "en-IN",
-    {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }
-  );
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 // ============================================================
 // CHART FILTER
 // ============================================================
 
-export function filterHistory(
-  history,
-  range
-) {
+export function filterHistory(history, range) {
   if (range === "ALL") {
     return history;
   }
@@ -215,53 +145,29 @@ export function filterHistory(
     "1Y": 365,
   };
 
-  const cutoff =
-    new Date();
+  const cutoff = new Date();
 
-  cutoff.setDate(
-    cutoff.getDate() -
-      days[range]
-  );
+  cutoff.setDate(cutoff.getDate() - days[range]);
 
-  return history.filter(
-    (entry) => {
-      const date =
-        dateValue(
-          entry.recorded_date
-        );
+  return history.filter((entry) => {
+    const date = dateValue(entry.recorded_date);
 
-      return (
-        date &&
-        date >= cutoff
-      );
-    }
-  );
+    return date && date >= cutoff;
+  });
 }
 
 // ============================================================
 // HEALTH HELPERS
 // ============================================================
 
-export function calculateBMI(
-  weightKg,
-  heightCm
-) {
-  if (
-    !weightKg ||
-    !heightCm
-  ) {
+export function calculateBMI(weightKg, heightCm) {
+  if (!weightKg || !heightCm) {
     return null;
   }
 
-  const metres =
-    Number(heightCm) /
-    100;
+  const metres = Number(heightCm) / 100;
 
-  return round(
-    Number(weightKg) /
-      (metres * metres),
-    1
-  );
+  return round(Number(weightKg) / (metres * metres), 1);
 }
 
 export function bmiCategory(bmi) {
@@ -284,31 +190,17 @@ export function bmiCategory(bmi) {
   return "Obesity";
 }
 
-export function healthyRange(
-  heightCm
-) {
+export function healthyRange(heightCm) {
   if (!heightCm) {
     return null;
   }
 
-  const height =
-    Number(heightCm) /
-    100;
+  const height = Number(heightCm) / 100;
 
   return {
-    min: round(
-      18.5 *
-        height *
-        height,
-      1
-    ),
+    min: round(18.5 * height * height, 1),
 
-    max: round(
-      24.9 *
-        height *
-        height,
-      1
-    ),
+    max: round(24.9 * height * height, 1),
   };
 }
 
@@ -345,5 +237,4 @@ export function emptyProfile() {
     hip: "",
     hipUnit: "cm",
   };
-
 }

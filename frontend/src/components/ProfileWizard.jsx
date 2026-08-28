@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { Activity, ChevronRight, Target, X } from "lucide-react";
-import { Field, HeightField, MeasurementField, SelectField } from "./FormFields";
+import {
+  Field,
+  HeightField,
+  MeasurementField,
+  SelectField,
+} from "./FormFields";
 import {
   bmiCategory,
   calculateBMI,
@@ -11,45 +16,27 @@ import {
   weightToKg,
 } from "../utils/weightUtils";
 
-
 export default function ProfileWizard({
   open,
   onClose,
   onSave,
   firstProfile = false,
 }) {
-  const [
-    step,
-    setStep,
-  ] = useState(1);
+  const [step, setStep] = useState(1);
 
-  const [
-    form,
-    setForm,
-  ] = useState(
-    emptyProfile()
-  );
+  const [form, setForm] = useState(emptyProfile());
 
-  const [
-    saving,
-    setSaving,
-  ] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   if (!open) {
     return null;
   }
 
-  function change(
-    name,
-    value
-  ) {
-    setForm(
-      (old) => ({
-        ...old,
-        [name]:
-          value,
-      })
-    );
+  function change(name, value) {
+    setForm((old) => ({
+      ...old,
+      [name]: value,
+    }));
   }
 
   async function submit() {
@@ -58,9 +45,7 @@ export default function ProfileWizard({
 
       await onSave(form);
 
-      setForm(
-        emptyProfile()
-      );
+      setForm(emptyProfile());
 
       setStep(1);
     } finally {
@@ -69,44 +54,21 @@ export default function ProfileWizard({
   }
 
   const previewHeight =
-    form.heightUnit ===
-    "ft-in"
-      ? feetInchesToCm(
-          form.heightFeet,
-          form.heightInches
-        )
-      : lengthToCm(
-          form.heightValue,
-          form.heightUnit
-        );
+    form.heightUnit === "ft-in"
+      ? feetInchesToCm(form.heightFeet, form.heightInches)
+      : lengthToCm(form.heightValue, form.heightUnit);
 
-  const previewWeight =
-    weightToKg(
-      form.currentWeight,
-      form.weightUnit
-    );
+  const previewWeight = weightToKg(form.currentWeight, form.weightUnit);
 
-  const previewBMI =
-    calculateBMI(
-      previewWeight,
-      previewHeight
-    );
+  const previewBMI = calculateBMI(previewWeight, previewHeight);
 
-  const previewHealthy =
-    healthyRange(
-      previewHeight
-    );
+  const previewHealthy = healthyRange(previewHeight);
 
   return (
     <div className="modal-overlay wizard-overlay">
       <div className="wizard">
         {!firstProfile && (
-          <button
-            className="close-button"
-            onClick={
-              onClose
-            }
-          >
+          <button className="close-button" onClick={onClose}>
             <X />
           </button>
         )}
@@ -118,133 +80,59 @@ export default function ProfileWizard({
 
           <div>
             <span className="eyebrow">
-              {firstProfile
-                ? "WELCOME TO WEIGHTTRACK"
-                : "NEW PROFILE"}
+              {firstProfile ? "WELCOME TO WEIGHTTRACK" : "NEW PROFILE"}
             </span>
 
             <h1>
               {step === 1
                 ? "Tell us about yourself"
-                : step ===
-                  2
-                ? "Body measurements"
-                : "Set your goal"}
+                : step === 2
+                  ? "Body measurements"
+                  : "Set your goal"}
             </h1>
           </div>
         </div>
 
         <div className="steps">
-          <WizardStep
-            number={1}
-            label="Personal"
-            active={
-              step >= 1
-            }
-          />
+          <WizardStep number={1} label="Personal" active={step >= 1} />
 
-          <div
-            className={`step-line ${
-              step >= 2
-                ? "active"
-                : ""
-            }`}
-          />
+          <div className={`step-line ${step >= 2 ? "active" : ""}`} />
 
-          <WizardStep
-            number={2}
-            label="Body"
-            active={
-              step >= 2
-            }
-          />
+          <WizardStep number={2} label="Body" active={step >= 2} />
 
-          <div
-            className={`step-line ${
-              step >= 3
-                ? "active"
-                : ""
-            }`}
-          />
+          <div className={`step-line ${step >= 3 ? "active" : ""}`} />
 
-          <WizardStep
-            number={3}
-            label="Goal"
-            active={
-              step >= 3
-            }
-          />
+          <WizardStep number={3} label="Goal" active={step >= 3} />
         </div>
 
         {step === 1 && (
           <div className="form-grid">
             <Field
               label="Name"
-              value={
-                form.profile_name
-              }
-              onChange={(
-                value
-              ) =>
-                change(
-                  "profile_name",
-                  value
-                )
-              }
+              value={form.profile_name}
+              onChange={(value) => change("profile_name", value)}
               placeholder="Enter name"
             />
 
             <Field
               label="Date of Birth"
               type="date"
-              value={
-                form.dob
-              }
-              onChange={(
-                value
-              ) =>
-                change(
-                  "dob",
-                  value
-                )
-              }
+              value={form.dob}
+              onChange={(value) => change("dob", value)}
             />
 
             <SelectField
               label="Gender"
-              value={
-                form.gender
-              }
-              onChange={(
-                value
-              ) =>
-                change(
-                  "gender",
-                  value
-                )
-              }
+              value={form.gender}
+              onChange={(value) => change("gender", value)}
               options={[
-                [
-                  "",
-                  "Select gender",
-                ],
-                [
-                  "male",
-                  "Male",
-                ],
-                [
-                  "female",
-                  "Female",
-                ],
+                ["", "Select gender"],
+                ["male", "Male"],
+                ["female", "Female"],
               ]}
             />
 
-            <HeightField
-              form={form}
-              change={
-                change
-              }
-            />
+            <HeightField form={form} change={change} />
           </div>
         )}
 
@@ -252,152 +140,47 @@ export default function ProfileWizard({
           <div className="form-grid">
             <MeasurementField
               label="Current Weight"
-              value={
-                form.currentWeight
-              }
-              unit={
-                form.weightUnit
-              }
-              units={[
-                "kg",
-                "lbs",
-              ]}
-              onValue={(
-                value
-              ) =>
-                change(
-                  "currentWeight",
-                  value
-                )
-              }
-              onUnit={(
-                value
-              ) =>
-                change(
-                  "weightUnit",
-                  value
-                )
-              }
+              value={form.currentWeight}
+              unit={form.weightUnit}
+              units={["kg", "lbs"]}
+              onValue={(value) => change("currentWeight", value)}
+              onUnit={(value) => change("weightUnit", value)}
             />
 
             <MeasurementField
               label="Waist"
-              value={
-                form.waist
-              }
-              unit={
-                form.waistUnit
-              }
-              units={[
-                "cm",
-                "inch",
-              ]}
-              onValue={(
-                value
-              ) =>
-                change(
-                  "waist",
-                  value
-                )
-              }
-              onUnit={(
-                value
-              ) =>
-                change(
-                  "waistUnit",
-                  value
-                )
-              }
+              value={form.waist}
+              unit={form.waistUnit}
+              units={["cm", "inch"]}
+              onValue={(value) => change("waist", value)}
+              onUnit={(value) => change("waistUnit", value)}
             />
 
             <MeasurementField
               label="Chest"
-              value={
-                form.chest
-              }
-              unit={
-                form.chestUnit
-              }
-              units={[
-                "cm",
-                "inch",
-              ]}
-              onValue={(
-                value
-              ) =>
-                change(
-                  "chest",
-                  value
-                )
-              }
-              onUnit={(
-                value
-              ) =>
-                change(
-                  "chestUnit",
-                  value
-                )
-              }
+              value={form.chest}
+              unit={form.chestUnit}
+              units={["cm", "inch"]}
+              onValue={(value) => change("chest", value)}
+              onUnit={(value) => change("chestUnit", value)}
             />
 
             <MeasurementField
               label="Neck"
-              value={
-                form.neck
-              }
-              unit={
-                form.neckUnit
-              }
-              units={[
-                "cm",
-                "inch",
-              ]}
-              onValue={(
-                value
-              ) =>
-                change(
-                  "neck",
-                  value
-                )
-              }
-              onUnit={(
-                value
-              ) =>
-                change(
-                  "neckUnit",
-                  value
-                )
-              }
+              value={form.neck}
+              unit={form.neckUnit}
+              units={["cm", "inch"]}
+              onValue={(value) => change("neck", value)}
+              onUnit={(value) => change("neckUnit", value)}
             />
 
             <MeasurementField
               label="Hip"
-              value={
-                form.hip
-              }
-              unit={
-                form.hipUnit
-              }
-              units={[
-                "cm",
-                "inch",
-              ]}
-              onValue={(
-                value
-              ) =>
-                change(
-                  "hip",
-                  value
-                )
-              }
-              onUnit={(
-                value
-              ) =>
-                change(
-                  "hipUnit",
-                  value
-                )
-              }
+              value={form.hip}
+              unit={form.hipUnit}
+              units={["cm", "inch"]}
+              onValue={(value) => change("hip", value)}
+              onUnit={(value) => change("hipUnit", value)}
               optional
             />
           </div>
@@ -407,30 +190,15 @@ export default function ProfileWizard({
           <>
             <div className="preview-grid">
               <div className="preview-card">
-                <span>
-                  BMI
-                </span>
+                <span>BMI</span>
 
-                <strong>
-                  {previewBMI
-                    ? previewBMI.toFixed(
-                        1
-                      )
-                    : "—"}
-                </strong>
+                <strong>{previewBMI ? previewBMI.toFixed(1) : "—"}</strong>
 
-                <small>
-                  {bmiCategory(
-                    previewBMI
-                  )}
-                </small>
+                <small>{bmiCategory(previewBMI)}</small>
               </div>
 
               <div className="preview-card">
-                <span>
-                  General Healthy
-                  Range
-                </span>
+                <span>General Healthy Range</span>
 
                 <strong>
                   {previewHealthy
@@ -438,41 +206,18 @@ export default function ProfileWizard({
                     : "—"}
                 </strong>
 
-                <small>
-                  BMI 18.5–24.9
-                </small>
+                <small>BMI 18.5–24.9</small>
               </div>
             </div>
 
             <div className="goal-input">
               <MeasurementField
                 label="Target Weight"
-                value={
-                  form.targetWeight
-                }
-                unit={
-                  form.targetWeightUnit
-                }
-                units={[
-                  "kg",
-                  "lbs",
-                ]}
-                onValue={(
-                  value
-                ) =>
-                  change(
-                    "targetWeight",
-                    value
-                  )
-                }
-                onUnit={(
-                  value
-                ) =>
-                  change(
-                    "targetWeightUnit",
-                    value
-                  )
-                }
+                value={form.targetWeight}
+                unit={form.targetWeightUnit}
+                units={["kg", "lbs"]}
+                onValue={(value) => change("targetWeight", value)}
+                onUnit={(value) => change("targetWeightUnit", value)}
               />
             </div>
 
@@ -480,22 +225,12 @@ export default function ProfileWizard({
               <Target />
 
               <div>
-                <strong>
-                  Choose a
-                  realistic,
-                  sustainable
-                  target.
-                </strong>
+                <strong>Choose a realistic, sustainable target.</strong>
 
                 <p>
-                  The app shows a
-                  general BMI-based
-                  range as a health
-                  reference rather
-                  than deciding a
-                  weight at which
-                  someone will
-                  “look good.”
+                  The app shows a general BMI-based range as a health reference
+                  rather than deciding a weight at which someone will “look
+                  good.”
                 </p>
               </div>
             </div>
@@ -506,11 +241,7 @@ export default function ProfileWizard({
           {step > 1 && (
             <button
               className="secondary-button"
-              onClick={() =>
-                setStep(
-                  step - 1
-                )
-              }
+              onClick={() => setStep(step - 1)}
             >
               Back
             </button>
@@ -519,11 +250,7 @@ export default function ProfileWizard({
           {step < 3 ? (
             <button
               className="primary-button"
-              onClick={() =>
-                setStep(
-                  step + 1
-                )
-              }
+              onClick={() => setStep(step + 1)}
             >
               Continue
               <ChevronRight />
@@ -531,20 +258,12 @@ export default function ProfileWizard({
           ) : (
             <button
               className="primary-button"
-              onClick={
-                submit
-              }
-              disabled={
-                saving
-              }
+              onClick={submit}
+              disabled={saving}
             >
-              {saving
-                ? "Saving..."
-                : "Create Profile"}
+              {saving ? "Saving..." : "Create Profile"}
 
-              {!saving && (
-                <ChevronRight />
-              )}
+              {!saving && <ChevronRight />}
             </button>
           )}
         </div>
@@ -553,26 +272,12 @@ export default function ProfileWizard({
   );
 }
 
-function WizardStep({
-  number,
-  label,
-  active,
-}) {
+function WizardStep({ number, label, active }) {
   return (
-    <div
-      className={`wizard-step ${
-        active
-          ? "active"
-          : ""
-      }`}
-    >
-      <div>
-        {number}
-      </div>
+    <div className={`wizard-step ${active ? "active" : ""}`}>
+      <div>{number}</div>
 
-      <span>
-        {label}
-      </span>
+      <span>{label}</span>
     </div>
   );
 }
@@ -580,4 +285,3 @@ function WizardStep({
 // ============================================================
 // EDIT PROFILE
 // ============================================================
-

@@ -1,4 +1,11 @@
-import { Activity, ChevronRight, Home, LineChart, Settings, UserPlus } from "lucide-react";
+import {
+  Activity,
+  ChevronRight,
+  Home,
+  LineChart,
+  Settings,
+  UserPlus,
+} from "lucide-react";
 import { round } from "../utils/weightUtils";
 
 export default function Sidebar({
@@ -11,22 +18,9 @@ export default function Sidebar({
 }) {
   return (
     <>
-      {open && (
-        <div
-          className="mobile-overlay"
-          onClick={
-            onClose
-          }
-        />
-      )}
+      {open && <div className="mobile-overlay" onClick={onClose} />}
 
-      <aside
-        className={`sidebar ${
-          open
-            ? "mobile-open"
-            : ""
-        }`}
-      >
+      <aside className={`sidebar ${open ? "mobile-open" : ""}`}>
         <div className="brand">
           <div className="brand-icon">
             <Activity />
@@ -35,20 +29,14 @@ export default function Sidebar({
           <div>
             <h1>
               Weight
-              <span>
-                Track
-              </span>
+              <span>Track</span>
             </h1>
 
-            <p>
-              Health Dashboard
-            </p>
+            <p>Health Dashboard</p>
           </div>
         </div>
 
-        <div className="nav-heading">
-          OVERVIEW
-        </div>
+        <div className="nav-heading">OVERVIEW</div>
 
         <button className="nav-item active">
           <Home />
@@ -60,64 +48,37 @@ export default function Sidebar({
           Progress
         </button>
 
-        <div className="nav-heading profile-heading">
-          PROFILES
-        </div>
+        <div className="nav-heading profile-heading">PROFILES</div>
 
         <div className="profile-list">
-          {profiles.map(
-            (item) => (
-              <button
-                key={
-                  item.profile_id
-                }
-                onClick={() =>
-                  onSelect(
-                    item.profile_id
-                  )
-                }
-                className={`profile-item ${
-                  selectedId ===
-                  item.profile_id
-                    ? "active"
-                    : ""
-                }`}
-              >
-                <div className="profile-avatar">
-                  {item.profile_name
-                    ?.charAt(0)
-                    .toUpperCase()}
-                </div>
+          {profiles.map((item) => (
+            <button
+              key={item.profile_id}
+              onClick={() => onSelect(item.profile_id)}
+              className={`profile-item ${
+                selectedId === item.profile_id ? "active" : ""
+              }`}
+            >
+              <div className="profile-avatar">
+                {item.profile_name?.charAt(0).toUpperCase()}
+              </div>
 
-                <div>
-                  <strong>
-                    {
-                      item.profile_name
-                    }
-                  </strong>
+              <div>
+                <strong>{item.profile_name}</strong>
 
-                  <span>
-                    {item.current_weight_kg
-                      ? `${round(
-                          item.current_weight_kg,
-                          1
-                        )} kg`
-                      : "No weight yet"}
-                  </span>
-                </div>
+                <span>
+                  {item.current_weight_kg
+                    ? `${round(item.current_weight_kg, 1)} kg`
+                    : "No weight yet"}
+                </span>
+              </div>
 
-                <ChevronRight />
-              </button>
-            )
-          )}
+              <ChevronRight />
+            </button>
+          ))}
         </div>
 
-        <button
-          className="add-profile"
-          onClick={
-            onAdd
-          }
-        >
+        <button className="add-profile" onClick={onAdd}>
           <UserPlus />
           Add Profile
         </button>
@@ -136,4 +97,3 @@ export default function Sidebar({
 // ============================================================
 // TOP BAR
 // ============================================================
-

@@ -14,15 +14,10 @@ export default function WelcomeScreen() {
         <div>
           <h1>
             Weight
-            <span>
-              Track
-            </span>
+            <span>Track</span>
           </h1>
 
-          <p>
-            Track • Improve •
-            Achieve
-          </p>
+          <p>Track • Improve • Achieve</p>
         </div>
       </div>
     </div>
@@ -32,4 +27,3 @@ export default function WelcomeScreen() {
 // ============================================================
 // SIDEBAR
 // ============================================================
-

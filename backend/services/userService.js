@@ -5,15 +5,15 @@ const pool = require("../db");
 // ============================================================
 
 const createUser = async (name) => {
-    const result = await pool.query(
-        `
+  const result = await pool.query(
+    `
         INSERT INTO users (name)
         VALUES (?)
         `,
-        [name]
-    );
+    [name],
+  );
 
-    return Number(result.insertId);
+  return Number(result.insertId);
 };
 
 // ============================================================
@@ -21,8 +21,8 @@ const createUser = async (name) => {
 // ============================================================
 
 const findUserById = async (userId) => {
-    const rows = await pool.query(
-        `
+  const rows = await pool.query(
+    `
         SELECT
             user_id,
             name,
@@ -30,10 +30,10 @@ const findUserById = async (userId) => {
         FROM users
         WHERE user_id = ?
         `,
-        [userId]
-    );
+    [userId],
+  );
 
-    return rows[0] || null;
+  return rows[0] || null;
 };
 
 // ============================================================
@@ -41,6 +41,6 @@ const findUserById = async (userId) => {
 // ============================================================
 
 module.exports = {
-    createUser,
-    findUserById
+  createUser,
+  findUserById,
 };

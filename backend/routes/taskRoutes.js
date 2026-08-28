@@ -1,55 +1,30 @@
 const express = require("express");
 
 const {
-    createTask,
-    getTasksByList,
-    updateTask,
-    updateTaskCompletion,
-    deleteTask
-} = require(
-    "../controllers/taskController"
-);
+  createTask,
+  getTasksByList,
+  updateTask,
+  updateTaskCompletion,
+  deleteTask,
+} = require("../controllers/taskController");
 
-
-const router =
-    express.Router({
-        mergeParams: true
-    });
-
+const router = express.Router({
+  mergeParams: true,
+});
 
 // Create task
-router.post(
-    "/",
-    createTask
-);
-
+router.post("/", createTask);
 
 // Get all tasks
-router.get(
-    "/",
-    getTasksByList
-);
-
+router.get("/", getTasksByList);
 
 // Update task
-router.put(
-    "/:taskId",
-    updateTask
-);
-
+router.put("/:taskId", updateTask);
 
 // Complete / uncomplete task
-router.patch(
-    "/:taskId/complete",
-    updateTaskCompletion
-);
-
+router.patch("/:taskId/complete", updateTaskCompletion);
 
 // Delete task
-router.delete(
-    "/:taskId",
-    deleteTask
-);
-
+router.delete("/:taskId", deleteTask);
 
 module.exports = router;

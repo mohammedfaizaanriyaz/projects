@@ -5,8 +5,8 @@ const pool = require("../db");
 // ============================================================
 
 const getBodyProfile = async (profileId) => {
-    const rows = await pool.query(
-        `
+  const rows = await pool.query(
+    `
         SELECT
             gender,
             height_cm,
@@ -19,10 +19,10 @@ const getBodyProfile = async (profileId) => {
 
         WHERE profile_id = ?
         `,
-        [profileId]
-    );
+    [profileId],
+  );
 
-    return rows[0] || null;
+  return rows[0] || null;
 };
 
 // ============================================================
@@ -31,27 +31,26 @@ const getBodyProfile = async (profileId) => {
 // ============================================================
 
 const saveWeightRecord = async ({
-    profileId,
-    weight,
-    bmi,
-    bodyFat,
-    waist,
-    chest,
-    neck,
-    hip,
-    recordedDate
+  profileId,
+  weight,
+  bmi,
+  bodyFat,
+  waist,
+  chest,
+  neck,
+  hip,
+  recordedDate,
 }) => {
-    let connection;
+  let connection;
 
-    try {
-        connection =
-            await pool.getConnection();
+  try {
+    connection = await pool.getConnection();
 
-        await connection.beginTransaction();
+    await connection.beginTransaction();
 
-        // Update latest body measurements
-        await connection.query(
-            `
+    // Update latest body measurements
+    await connection.query(
+      `
             UPDATE body_profile
 
             SET
@@ -62,19 +61,12 @@ const saveWeightRecord = async ({
 
             WHERE profile_id = ?
             `,
-            [
-                waist,
-                chest,
-                neck,
-                hip,
-                profileId
-            ]
-        );
+      [waist, chest, neck, hip, profileId],
+    );
 
-        // Insert new weight record
-        const result =
-            await connection.query(
-                `
+    // Insert new weight record
+    const result = await connection.query(
+      `
                 INSERT INTO weight_records
                 (
                     profile_id,
@@ -96,48 +88,36 @@ const saveWeightRecord = async ({
                     )
                 )
                 `,
-                [
-                    profileId,
-                    weight,
-                    bmi,
-                    bodyFat,
-                    recordedDate
-                ]
-            );
+      [profileId, weight, bmi, bodyFat, recordedDate],
+    );
 
-        await connection.commit();
+    await connection.commit();
 
-        return Number(
-            result.insertId
-        );
-
-    } catch (error) {
-        if (connection) {
-            try {
-                await connection.rollback();
-            } catch {
-                // Ignore rollback failure
-            }
-        }
-
-        throw error;
-
-    } finally {
-        if (connection) {
-            connection.release();
-        }
+    return Number(result.insertId);
+  } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch {
+        // Ignore rollback failure
+      }
     }
+
+    throw error;
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
 };
 
 // ============================================================
 // GET WEIGHT HISTORY
 // ============================================================
 
-const getWeightHistory = async (
-    profileId
-) => {
-    return pool.query(
-        `
+const getWeightHistory = async (profileId) => {
+  return pool.query(
+    `
         SELECT
             weight_id,
             profile_id,
@@ -155,8 +135,8 @@ const getWeightHistory = async (
             recorded_date ASC,
             weight_id ASC
         `,
-        [profileId]
-    );
+    [profileId],
+  );
 };
 
 // ============================================================
@@ -164,7 +144,7 @@ const getWeightHistory = async (
 // ============================================================
 
 module.exports = {
-    getBodyProfile,
-    saveWeightRecord,
-    getWeightHistory
+  getBodyProfile,
+  saveWeightRecord,
+  getWeightHistory,
 };

@@ -1,24 +1,18 @@
 const express = require("express");
 
 const {
-    createWeightRecord,
-    getWeightHistory
+  createWeightRecord,
+  getWeightHistory,
 } = require("../controllers/weightController");
 
 const router = express.Router({
-    mergeParams: true
+  mergeParams: true,
 });
 
 // Add new weight record
-router.post(
-    "/",
-    createWeightRecord
-);
+router.post("/", createWeightRecord);
 
 // Get weight history
-router.get(
-    "/",
-    getWeightHistory
-);
+router.get("/", getWeightHistory);
 
 module.exports = router;

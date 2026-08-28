@@ -1,19 +1,12 @@
 const pool = require("../db");
 
-
 // ============================================================
 // CREATE TASK LIST
 // ============================================================
 
-const createTaskList = async ({
-    userId,
-    listName,
-    listType
-}) => {
-
-    const result =
-        await pool.query(
-            `
+const createTaskList = async ({ userId, listName, listType }) => {
+  const result = await pool.query(
+    `
             INSERT INTO task_lists
             (
                 user_id,
@@ -23,30 +16,19 @@ const createTaskList = async ({
 
             VALUES (?, ?, ?)
             `,
-            [
-                userId,
-                listName,
-                listType
-            ]
-        );
+    [userId, listName, listType],
+  );
 
-
-    return Number(
-        result.insertId
-    );
+  return Number(result.insertId);
 };
-
 
 // ============================================================
 // GET ALL LISTS FOR USER
 // ============================================================
 
-const getTaskListsByUser = async (
-    userId
-) => {
-
-    return pool.query(
-        `
+const getTaskListsByUser = async (userId) => {
+  return pool.query(
+    `
         SELECT
             list_id,
             user_id,
@@ -63,23 +45,17 @@ const getTaskListsByUser = async (
             created_at ASC,
             list_id ASC
         `,
-        [userId]
-    );
+    [userId],
+  );
 };
-
 
 // ============================================================
 // FIND ONE TASK LIST
 // ============================================================
 
-const findTaskListById = async (
-    userId,
-    listId
-) => {
-
-    const rows =
-        await pool.query(
-            `
+const findTaskListById = async (userId, listId) => {
+  const rows = await pool.query(
+    `
             SELECT
                 list_id,
                 user_id,
@@ -94,30 +70,19 @@ const findTaskListById = async (
                 user_id = ?
                 AND list_id = ?
             `,
-            [
-                userId,
-                listId
-            ]
-        );
+    [userId, listId],
+  );
 
-
-    return rows[0] || null;
+  return rows[0] || null;
 };
-
 
 // ============================================================
 // UPDATE TASK LIST
 // ============================================================
 
-const updateTaskList = async ({
-    userId,
-    listId,
-    listName,
-    listType
-}) => {
-
-    return pool.query(
-        `
+const updateTaskList = async ({ userId, listId, listName, listType }) => {
+  return pool.query(
+    `
         UPDATE task_lists
 
         SET
@@ -128,57 +93,41 @@ const updateTaskList = async ({
             user_id = ?
             AND list_id = ?
         `,
-        [
-            listName,
-            listType,
-            userId,
-            listId
-        ]
-    );
+    [listName, listType, userId, listId],
+  );
 };
-
 
 // ============================================================
 // DELETE TASK LIST
 // ============================================================
 
-const deleteTaskList = async (
-    userId,
-    listId
-) => {
-
-    return pool.query(
-        `
+const deleteTaskList = async (userId, listId) => {
+  return pool.query(
+    `
         DELETE FROM task_lists
 
         WHERE
             user_id = ?
             AND list_id = ?
         `,
-        [
-            userId,
-            listId
-        ]
-    );
+    [userId, listId],
+  );
 };
-
 
 // ============================================================
 // CREATE TASK
 // ============================================================
 
 const createTask = async ({
-    listId,
-    title,
-    description,
-    timeLimitMinutes,
-    dueAt,
-    reminderAt
+  listId,
+  title,
+  description,
+  timeLimitMinutes,
+  dueAt,
+  reminderAt,
 }) => {
-
-    const result =
-        await pool.query(
-            `
+  const result = await pool.query(
+    `
             INSERT INTO tasks
             (
                 list_id,
@@ -199,34 +148,19 @@ const createTask = async ({
                 ?
             )
             `,
-            [
-                listId,
-                title,
-                description,
-                timeLimitMinutes,
-                dueAt,
-                reminderAt
-            ]
-        );
+    [listId, title, description, timeLimitMinutes, dueAt, reminderAt],
+  );
 
-
-    return Number(
-        result.insertId
-    );
+  return Number(result.insertId);
 };
-
 
 // ============================================================
 // GET ALL TASKS FROM ONE LIST
 // ============================================================
 
-const getTasksByList = async (
-    userId,
-    listId
-) => {
-
-    return pool.query(
-        `
+const getTasksByList = async (userId, listId) => {
+  return pool.query(
+    `
         SELECT
             t.task_id,
             t.list_id,
@@ -254,27 +188,17 @@ const getTasksByList = async (
             t.created_at ASC,
             t.task_id ASC
         `,
-        [
-            userId,
-            listId
-        ]
-    );
+    [userId, listId],
+  );
 };
-
 
 // ============================================================
 // FIND ONE TASK
 // ============================================================
 
-const findTaskById = async (
-    userId,
-    listId,
-    taskId
-) => {
-
-    const rows =
-        await pool.query(
-            `
+const findTaskById = async (userId, listId, taskId) => {
+  const rows = await pool.query(
+    `
             SELECT
                 t.task_id,
                 t.list_id,
@@ -298,35 +222,28 @@ const findTaskById = async (
                 AND t.list_id = ?
                 AND t.task_id = ?
             `,
-            [
-                userId,
-                listId,
-                taskId
-            ]
-        );
+    [userId, listId, taskId],
+  );
 
-
-    return rows[0] || null;
+  return rows[0] || null;
 };
-
 
 // ============================================================
 // UPDATE TASK
 // ============================================================
 
 const updateTask = async ({
-    userId,
-    listId,
-    taskId,
-    title,
-    description,
-    timeLimitMinutes,
-    dueAt,
-    reminderAt
+  userId,
+  listId,
+  taskId,
+  title,
+  description,
+  timeLimitMinutes,
+  dueAt,
+  reminderAt,
 }) => {
-
-    return pool.query(
-        `
+  return pool.query(
+    `
         UPDATE tasks t
 
         INNER JOIN task_lists tl
@@ -344,33 +261,31 @@ const updateTask = async ({
             AND t.list_id = ?
             AND t.task_id = ?
         `,
-        [
-            title,
-            description,
-            timeLimitMinutes,
-            dueAt,
-            reminderAt,
-            userId,
-            listId,
-            taskId
-        ]
-    );
+    [
+      title,
+      description,
+      timeLimitMinutes,
+      dueAt,
+      reminderAt,
+      userId,
+      listId,
+      taskId,
+    ],
+  );
 };
-
 
 // ============================================================
 // COMPLETE / UNCOMPLETE TASK
 // ============================================================
 
 const updateTaskCompletion = async ({
-    userId,
-    listId,
-    taskId,
-    isCompleted
+  userId,
+  listId,
+  taskId,
+  isCompleted,
 }) => {
-
-    return pool.query(
-        `
+  return pool.query(
+    `
         UPDATE tasks t
 
         INNER JOIN task_lists tl
@@ -391,29 +306,17 @@ const updateTaskCompletion = async ({
             AND t.list_id = ?
             AND t.task_id = ?
         `,
-        [
-            isCompleted ? 1 : 0,
-            isCompleted ? 1 : 0,
-            userId,
-            listId,
-            taskId
-        ]
-    );
+    [isCompleted ? 1 : 0, isCompleted ? 1 : 0, userId, listId, taskId],
+  );
 };
-
 
 // ============================================================
 // DELETE TASK
 // ============================================================
 
-const deleteTask = async (
-    userId,
-    listId,
-    taskId
-) => {
-
-    return pool.query(
-        `
+const deleteTask = async (userId, listId, taskId) => {
+  return pool.query(
+    `
         DELETE t
 
         FROM tasks t
@@ -426,12 +329,8 @@ const deleteTask = async (
             AND t.list_id = ?
             AND t.task_id = ?
         `,
-        [
-            userId,
-            listId,
-            taskId
-        ]
-    );
+    [userId, listId, taskId],
+  );
 };
 
 // ============================================================
@@ -439,9 +338,8 @@ const deleteTask = async (
 // ============================================================
 
 const getDueReminders = async () => {
-
-    return pool.query(
-        `
+  return pool.query(
+    `
         SELECT
             t.task_id,
             t.list_id,
@@ -464,21 +362,17 @@ const getDueReminders = async () => {
 
         ORDER BY
             t.reminder_at ASC
-        `
-    );
+        `,
+  );
 };
-
 
 // ============================================================
 // MARK REMINDER AS SENT
 // ============================================================
 
-const markReminderAsSent = async (
-    taskId
-) => {
-
-    return pool.query(
-        `
+const markReminderAsSent = async (taskId) => {
+  return pool.query(
+    `
         UPDATE tasks
 
         SET
@@ -487,27 +381,27 @@ const markReminderAsSent = async (
         WHERE
             task_id = ?
         `,
-        [taskId]
-    );
+    [taskId],
+  );
 };
 // ============================================================
 // EXPORT SERVICES
 // ============================================================
 
 module.exports = {
-    createTaskList,
-    getTaskListsByUser,
-    findTaskListById,
-    updateTaskList,
-    deleteTaskList,
+  createTaskList,
+  getTaskListsByUser,
+  findTaskListById,
+  updateTaskList,
+  deleteTaskList,
 
-    createTask,
-    getTasksByList,
-    findTaskById,
-    updateTask,
-    updateTaskCompletion,
-    deleteTask,
+  createTask,
+  getTasksByList,
+  findTaskById,
+  updateTask,
+  updateTaskCompletion,
+  deleteTask,
 
-    getDueReminders,
-    markReminderAsSent
+  getDueReminders,
+  markReminderAsSent,
 };

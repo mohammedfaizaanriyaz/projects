@@ -4,20 +4,17 @@ const pool = require("../db");
 // CHECK USER EXISTS
 // ============================================================
 
-const userExists = async (
-    userId,
-    connection = pool
-) => {
-    const rows = await connection.query(
-        `
+const userExists = async (userId, connection = pool) => {
+  const rows = await connection.query(
+    `
         SELECT user_id
         FROM users
         WHERE user_id = ?
         `,
-        [userId]
-    );
+    [userId],
+  );
 
-    return rows.length > 0;
+  return rows.length > 0;
 };
 
 // ============================================================
@@ -25,46 +22,40 @@ const userExists = async (
 // ============================================================
 
 const createProfile = async ({
-    userId,
-    profileName,
-    dob,
-    gender,
-    height,
-    waist,
-    chest,
-    neck,
-    hip,
-    currentWeight,
-    targetWeight,
-    bmi,
-    bodyFat
+  userId,
+  profileName,
+  dob,
+  gender,
+  height,
+  waist,
+  chest,
+  neck,
+  hip,
+  currentWeight,
+  targetWeight,
+  bmi,
+  bodyFat,
 }) => {
-    let connection;
+  let connection;
 
-    try {
-        connection =
-            await pool.getConnection();
+  try {
+    connection = await pool.getConnection();
 
-        await connection.beginTransaction();
+    await connection.beginTransaction();
 
-        const exists =
-            await userExists(
-                userId,
-                connection
-            );
+    const exists = await userExists(userId, connection);
 
-        if (!exists) {
-            await connection.rollback();
+    if (!exists) {
+      await connection.rollback();
 
-            return {
-                userNotFound: true
-            };
-        }
+      return {
+        userNotFound: true,
+      };
+    }
 
-        // Create profile
-        const profileResult =
-            await connection.query(
-                `
+    // Create profile
+    const profileResult = await connection.query(
+      `
                 INSERT INTO profiles
                 (
                     user_id,
@@ -72,20 +63,14 @@ const createProfile = async ({
                 )
                 VALUES (?, ?)
                 `,
-                [
-                    userId,
-                    profileName
-                ]
-            );
+      [userId, profileName],
+    );
 
-        const profileId =
-            Number(
-                profileResult.insertId
-            );
+    const profileId = Number(profileResult.insertId);
 
-        // Create body profile
-        await connection.query(
-            `
+    // Create body profile
+    await connection.query(
+      `
             INSERT INTO body_profile
             (
                 profile_id,
@@ -100,26 +85,15 @@ const createProfile = async ({
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             `,
-            [
-                profileId,
-                dob,
-                gender,
-                height,
-                waist,
-                chest,
-                neck,
-                hip,
-                targetWeight
-            ]
-        );
+      [profileId, dob, gender, height, waist, chest, neck, hip, targetWeight],
+    );
 
-        let weightRecord = null;
+    let weightRecord = null;
 
-        // Create initial weight record
-        if (currentWeight !== null) {
-            const weightResult =
-                await connection.query(
-                    `
+    // Create initial weight record
+    if (currentWeight !== null) {
+      const weightResult = await connection.query(
+        `
                     INSERT INTO weight_records
                     (
                         profile_id,
@@ -130,63 +104,50 @@ const createProfile = async ({
                     )
                     VALUES (?, ?, ?, ?, CURDATE())
                     `,
-                    [
-                        profileId,
-                        currentWeight,
-                        bmi,
-                        bodyFat
-                    ]
-                );
+        [profileId, currentWeight, bmi, bodyFat],
+      );
 
-            weightRecord = {
-                weight_id:
-                    Number(
-                        weightResult.insertId
-                    ),
+      weightRecord = {
+        weight_id: Number(weightResult.insertId),
 
-                weight_kg:
-                    currentWeight,
+        weight_kg: currentWeight,
 
-                bmi,
+        bmi,
 
-                body_fat_percentage:
-                    bodyFat
-            };
-        }
-
-        await connection.commit();
-
-        return {
-            profileId,
-            weightRecord
-        };
-
-    } catch (error) {
-        if (connection) {
-            try {
-                await connection.rollback();
-            } catch {
-                // Ignore rollback failure
-            }
-        }
-
-        throw error;
-
-    } finally {
-        if (connection) {
-            connection.release();
-        }
+        body_fat_percentage: bodyFat,
+      };
     }
+
+    await connection.commit();
+
+    return {
+      profileId,
+      weightRecord,
+    };
+  } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch {
+        // Ignore rollback failure
+      }
+    }
+
+    throw error;
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
 };
 
 // ============================================================
 // GET ALL PROFILES OF USER
 // ============================================================
 
-const getProfilesByUser =
-    async (userId) => {
-        return pool.query(
-            `
+const getProfilesByUser = async (userId) => {
+  return pool.query(
+    `
             SELECT
                 p.profile_id,
                 p.user_id,
@@ -231,19 +192,17 @@ const getProfilesByUser =
             ORDER BY
                 p.created_at ASC
             `,
-            [userId]
-        );
-    };
+    [userId],
+  );
+};
 
 // ============================================================
 // GET ONE PROFILE
 // ============================================================
 
-const getProfileById =
-    async (profileId) => {
-        const rows =
-            await pool.query(
-                `
+const getProfileById = async (profileId) => {
+  const rows = await pool.query(
+    `
                 SELECT
                     p.profile_id,
                     p.user_id,
@@ -267,56 +226,39 @@ const getProfileById =
                 WHERE
                     p.profile_id = ?
                 `,
-                [profileId]
-            );
+    [profileId],
+  );
 
-        return rows[0] || null;
-    };
+  return rows[0] || null;
+};
 
 // ============================================================
 // UPDATE PROFILE NAME
 // ============================================================
 
-const updateProfileName =
-    async (
-        profileId,
-        profileName
-    ) => {
-        return pool.query(
-            `
+const updateProfileName = async (profileId, profileName) => {
+  return pool.query(
+    `
             UPDATE profiles
 
             SET profile_name = ?
 
             WHERE profile_id = ?
             `,
-            [
-                profileName,
-                profileId
-            ]
-        );
-    };
+    [profileName, profileId],
+  );
+};
 
 // ============================================================
 // UPDATE BODY PROFILE
 // ============================================================
 
-const updateBodyProfile =
-    async (
-        profileId,
-        {
-            dob,
-            gender,
-            height,
-            waist,
-            chest,
-            neck,
-            hip,
-            targetWeight
-        }
-    ) => {
-        return pool.query(
-            `
+const updateBodyProfile = async (
+  profileId,
+  { dob, gender, height, waist, chest, neck, hip, targetWeight },
+) => {
+  return pool.query(
+    `
             UPDATE body_profile
 
             SET
@@ -365,47 +307,35 @@ const updateBodyProfile =
             WHERE
                 profile_id = ?
             `,
-            [
-                dob,
-                gender,
-                height,
-                waist,
-                chest,
-                neck,
-                hip,
-                targetWeight,
-                profileId
-            ]
-        );
-    };
+    [dob, gender, height, waist, chest, neck, hip, targetWeight, profileId],
+  );
+};
 
 // ============================================================
 // DELETE PROFILE
 // ============================================================
 
-const deleteProfile =
-    async (profileId) => {
-        const result =
-            await pool.query(
-                `
+const deleteProfile = async (profileId) => {
+  const result = await pool.query(
+    `
                 DELETE FROM profiles
                 WHERE profile_id = ?
                 `,
-                [profileId]
-            );
+    [profileId],
+  );
 
-        return result.affectedRows > 0;
-    };
+  return result.affectedRows > 0;
+};
 
 // ============================================================
 // EXPORT SERVICES
 // ============================================================
 
 module.exports = {
-    createProfile,
-    getProfilesByUser,
-    getProfileById,
-    updateProfileName,
-    updateBodyProfile,
-    deleteProfile
+  createProfile,
+  getProfilesByUser,
+  getProfileById,
+  updateProfileName,
+  updateBodyProfile,
+  deleteProfile,
 };

@@ -35,10 +35,13 @@ CREATE TABLE IF NOT EXISTS users (
 
     name VARCHAR(100) NOT NULL,
 
+    email VARCHAR(255) UNIQUE,
+
+    password_hash VARCHAR(255),
+
     created_at TIMESTAMP
         DEFAULT CURRENT_TIMESTAMP
-);
-
+)
 
 -- ============================================================
 -- 2. PROFILES

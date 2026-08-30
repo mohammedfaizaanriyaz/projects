@@ -91,8 +91,34 @@ const createProfile = async (
             neck_cm,
             hip_cm,
             current_weight_kg,
-            target_weight_kg
+            target_weight_kg,
+            activity_level
         } = req.body;
+        const allowedActivityLevels = [
+            "not_specified",
+            "sedentary",
+            "lightly_active",
+            "moderately_active",
+            "very_active",
+            "extra_active"
+        ];
+
+        const normalizedActivityLevel =
+            activity_level
+                ? String(activity_level)
+                    .trim()
+                    .toLowerCase()
+                : "not_specified";
+
+        if (
+            !allowedActivityLevels.includes(
+                normalizedActivityLevel
+            )
+        ) {
+            return res.status(400).json({
+                error: "Invalid activity level"
+            });
+        }
 
 
         // ====================================================
@@ -176,6 +202,35 @@ const createProfile = async (
                     error:
                         "Gender must be male or female"
                 });
+        }
+        // ====================================================
+        // VALIDATE OPTIONAL MEASUREMENTS
+        // ====================================================
+
+        const measurements = {
+            waist_cm,
+            chest_cm,
+            neck_cm,
+            hip_cm,
+            current_weight_kg,
+            target_weight_kg
+        };
+
+        for (
+            const [name, value]
+            of Object.entries(measurements)
+        ) {
+            if (
+                value !== undefined &&
+                value !== null &&
+                value !== "" &&
+                !isPositiveNumber(value)
+            ) {
+                return res.status(400).json({
+                    error:
+                        `${name} must be a positive number`
+                });
+            }
         }
 
 
@@ -278,7 +333,9 @@ const createProfile = async (
 
                     bmi,
 
-                    bodyFat
+                    bodyFat,
+                    activityLevel:
+                        normalizedActivityLevel
                 });
 
 
@@ -488,6 +545,24 @@ const updateProfile = async (
                         "Invalid profile ID"
                 });
         }
+        // ====================================================
+        // CHECK PROFILE EXISTS
+        // ====================================================
+
+        const existingProfile =
+            await profileService
+                .getProfileById(
+                    profileId
+                );
+
+        if (!existingProfile) {
+            return res
+                .status(404)
+                .json({
+                    error:
+                        "Profile not found"
+                });
+        }
 
 
         const {
@@ -499,7 +574,8 @@ const updateProfile = async (
             chest_cm,
             neck_cm,
             hip_cm,
-            target_weight_kg
+            target_weight_kg,
+            activity_level
         } = req.body;
 
 
@@ -574,6 +650,66 @@ const updateProfile = async (
                         "Height must be a positive number"
                 });
         }
+        // ====================================================
+        // VALIDATE OPTIONAL MEASUREMENTS IF SUPPLIED
+        // ====================================================
+
+        const measurements = {
+            waist_cm,
+            chest_cm,
+            neck_cm,
+            hip_cm,
+            target_weight_kg
+        };
+
+        for (
+            const [name, value]
+            of Object.entries(measurements)
+        ) {
+            if (
+                value !== undefined &&
+                value !== null &&
+                value !== "" &&
+                !isPositiveNumber(value)
+            ) {
+                return res.status(400).json({
+                    error:
+                        `${name} must be a positive number`
+                });
+            }
+        }
+        // ====================================================
+        // VALIDATE ACTIVITY LEVEL IF SUPPLIED
+        // ====================================================
+
+        let normalizedActivityLevel = null;
+
+        if (activity_level !== undefined) {
+            normalizedActivityLevel =
+                String(activity_level)
+                    .trim()
+                    .toLowerCase();
+
+            const allowedActivityLevels = [
+                "not_specified",
+                "sedentary",
+                "lightly_active",
+                "moderately_active",
+                "very_active",
+                "extra_active"
+            ];
+
+            if (
+                !allowedActivityLevels.includes(
+                    normalizedActivityLevel
+                )
+            ) {
+                return res.status(400).json({
+                    error: "Invalid activity level"
+                });
+            }
+        }
+
 
 
         // ====================================================
@@ -609,10 +745,12 @@ const updateProfile = async (
         // ====================================================
         // PREPARE BODY PROFILE UPDATE
         // ====================================================
-
         const bodyProfile = {};
 
-
+        if (activity_level !== undefined) {
+            bodyProfile.activityLevel =
+                normalizedActivityLevel;
+        }
         if (
             dob !== undefined
         ) {

@@ -36,6 +36,7 @@ const createProfile = async ({
     hip,
     currentWeight,
     targetWeight,
+    activityLevel,
     bmi,
     bodyFat
 }) => {
@@ -96,9 +97,10 @@ const createProfile = async ({
                 chest_cm,
                 neck_cm,
                 hip_cm,
-                target_weight_kg
+                target_weight_kg,
+                activity_level
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,?)
             `,
             [
                 profileId,
@@ -109,7 +111,8 @@ const createProfile = async ({
                 chest,
                 neck,
                 hip,
-                targetWeight
+                targetWeight,
+                activityLevel
             ]
         );
 
@@ -201,6 +204,7 @@ const getProfilesByUser =
                 bp.neck_cm,
                 bp.hip_cm,
                 bp.target_weight_kg,
+                bp.activity_level,
 
                 (
                     SELECT
@@ -256,7 +260,8 @@ const getProfileById =
                     bp.chest_cm,
                     bp.neck_cm,
                     bp.hip_cm,
-                    bp.target_weight_kg
+                    bp.target_weight_kg,
+                    bp.activity_level
 
                 FROM profiles p
 
@@ -312,7 +317,8 @@ const updateBodyProfile =
             chest,
             neck,
             hip,
-            targetWeight
+            targetWeight,
+            activityLevel
         }
     ) => {
         return pool.query(
@@ -360,7 +366,12 @@ const updateBodyProfile =
                     COALESCE(
                         ?,
                         target_weight_kg
-                    )
+                    ),
+                    activity_level =
+    COALESCE(
+        ?,
+        activity_level
+    )
 
             WHERE
                 profile_id = ?
@@ -374,7 +385,9 @@ const updateBodyProfile =
                 neck,
                 hip,
                 targetWeight,
-                profileId
+                activityLevel,
+                profileId,
+                
             ]
         );
     };

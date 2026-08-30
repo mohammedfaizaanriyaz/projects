@@ -2,6 +2,8 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
+const authRoutes = require("./routes/authRoutes");
 const pool = require("./db");
 
 const requestLogger =
@@ -33,9 +35,28 @@ const PORT =
 // MIDDLEWARE
 // ============================================================
 
-app.use(cors());
-app.use(express.json());
-app.use(requestLogger);
+app.use(
+    cors({
+        origin:
+            process.env
+                .FRONTEND_ORIGIN ||
+            "http://localhost:5173",
+
+        credentials: true
+    })
+);
+
+app.use(
+    express.json()
+);
+
+app.use(
+    cookieParser()
+);
+
+app.use(
+    requestLogger
+);
 
 // ============================================================
 // TEST ROUTE
@@ -72,6 +93,10 @@ app.get(
 // API ROUTES
 // ============================================================
 
+app.use(
+    "/api/auth",
+    authRoutes
+);
 app.use(
     "/api/users",
     userRoutes

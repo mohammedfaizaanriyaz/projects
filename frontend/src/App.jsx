@@ -123,19 +123,42 @@ export default function App() {
   // INITIAL LOAD
   // ==========================================================
 
-  useEffect(() => {
+useEffect(() => {
+  async function initializeUser() {
     if (!userId) {
       setLoading(false);
+      setShowProfileModal(true);
+      return;
+    }
 
-      setShowProfileModal(
-        true
+    const userExists =
+      await validateStoredUser(
+        userId
       );
+
+    if (!userExists) {
+      localStorage.removeItem(
+        "weight_tracker_user_id"
+      );
+
+      setUserId(null);
+
+      setProfiles([]);
+      setSelectedProfileId(null);
+      setProfile(null);
+      setHistory([]);
+
+      setLoading(false);
+      setShowProfileModal(true);
 
       return;
     }
 
-    loadProfiles(userId);
-  }, [userId]);
+    await loadProfiles(userId);
+  }
+
+  initializeUser();
+}, [userId]);
 
   // ==========================================================
   // LOAD SELECTED PROFILE
@@ -199,6 +222,17 @@ export default function App() {
 
     return data;
   }
+  async function validateStoredUser(id) {
+  try {
+    await request(
+      `/api/users/${id}`
+    );
+
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
 
   async function loadProfiles(
     id

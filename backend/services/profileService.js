@@ -306,89 +306,241 @@ const updateProfileName =
 // UPDATE BODY PROFILE
 // ============================================================
 
+
 const updateBodyProfile =
     async (
         profileId,
-        {
-            dob,
-            gender,
-            height,
-            waist,
-            chest,
-            neck,
-            hip,
-            targetWeight,
-            activityLevel
-        }
+        updates
     ) => {
+
+        const fields = [];
+        const values = [];
+
+
+        // ====================================================
+        // DOB
+        // ====================================================
+
+        if (
+            Object.prototype
+                .hasOwnProperty.call(
+                    updates,
+                    "dob"
+                )
+        ) {
+            fields.push(
+                "dob = ?"
+            );
+
+            values.push(
+                updates.dob
+            );
+        }
+
+
+        // ====================================================
+        // GENDER
+        // ====================================================
+
+        if (
+            Object.prototype
+                .hasOwnProperty.call(
+                    updates,
+                    "gender"
+                )
+        ) {
+            fields.push(
+                "gender = ?"
+            );
+
+            values.push(
+                updates.gender
+            );
+        }
+
+
+        // ====================================================
+        // HEIGHT
+        // ====================================================
+
+        if (
+            Object.prototype
+                .hasOwnProperty.call(
+                    updates,
+                    "height"
+                )
+        ) {
+            fields.push(
+                "height_cm = ?"
+            );
+
+            values.push(
+                updates.height
+            );
+        }
+
+
+        // ====================================================
+        // WAIST
+        // ====================================================
+
+        if (
+            Object.prototype
+                .hasOwnProperty.call(
+                    updates,
+                    "waist"
+                )
+        ) {
+            fields.push(
+                "waist_cm = ?"
+            );
+
+            values.push(
+                updates.waist
+            );
+        }
+
+
+        // ====================================================
+        // CHEST
+        // ====================================================
+
+        if (
+            Object.prototype
+                .hasOwnProperty.call(
+                    updates,
+                    "chest"
+                )
+        ) {
+            fields.push(
+                "chest_cm = ?"
+            );
+
+            values.push(
+                updates.chest
+            );
+        }
+
+
+        // ====================================================
+        // NECK
+        // ====================================================
+
+        if (
+            Object.prototype
+                .hasOwnProperty.call(
+                    updates,
+                    "neck"
+                )
+        ) {
+            fields.push(
+                "neck_cm = ?"
+            );
+
+            values.push(
+                updates.neck
+            );
+        }
+
+
+        // ====================================================
+        // HIP
+        // ====================================================
+
+        if (
+            Object.prototype
+                .hasOwnProperty.call(
+                    updates,
+                    "hip"
+                )
+        ) {
+            fields.push(
+                "hip_cm = ?"
+            );
+
+            values.push(
+                updates.hip
+            );
+        }
+
+
+        // ====================================================
+        // TARGET WEIGHT
+        // ====================================================
+
+        if (
+            Object.prototype
+                .hasOwnProperty.call(
+                    updates,
+                    "targetWeight"
+                )
+        ) {
+            fields.push(
+                "target_weight_kg = ?"
+            );
+
+            values.push(
+                updates.targetWeight
+            );
+        }
+
+
+        // ====================================================
+        // ACTIVITY LEVEL
+        // ====================================================
+
+        if (
+            Object.prototype
+                .hasOwnProperty.call(
+                    updates,
+                    "activityLevel"
+                )
+        ) {
+            fields.push(
+                "activity_level = ?"
+            );
+
+            values.push(
+                updates.activityLevel
+            );
+        }
+
+
+        // ====================================================
+        // NOTHING TO UPDATE
+        // ====================================================
+
+        if (
+            fields.length === 0
+        ) {
+            return null;
+        }
+
+
+        // Add profile ID for:
+        // WHERE profile_id = ?
+        values.push(
+            profileId
+        );
+
+
+        // ====================================================
+        // UPDATE DATABASE
+        // ====================================================
+
         return pool.query(
             `
             UPDATE body_profile
 
             SET
-                dob =
-                    COALESCE(?, dob),
-
-                gender =
-                    COALESCE(?, gender),
-
-                height_cm =
-                    COALESCE(
-                        ?,
-                        height_cm
-                    ),
-
-                waist_cm =
-                    COALESCE(
-                        ?,
-                        waist_cm
-                    ),
-
-                chest_cm =
-                    COALESCE(
-                        ?,
-                        chest_cm
-                    ),
-
-                neck_cm =
-                    COALESCE(
-                        ?,
-                        neck_cm
-                    ),
-
-                hip_cm =
-                    COALESCE(
-                        ?,
-                        hip_cm
-                    ),
-
-                target_weight_kg =
-                    COALESCE(
-                        ?,
-                        target_weight_kg
-                    ),
-                    activity_level =
-    COALESCE(
-        ?,
-        activity_level
-    )
+                ${fields.join(
+                ",\n                "
+            )}
 
             WHERE
                 profile_id = ?
             `,
-            [
-                dob,
-                gender,
-                height,
-                waist,
-                chest,
-                neck,
-                hip,
-                targetWeight,
-                activityLevel,
-                profileId,
-                
-            ]
+            values
         );
     };
 

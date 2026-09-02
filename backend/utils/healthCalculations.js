@@ -8,6 +8,71 @@ function roundToTwo(value) {
     );
 }
 
+
+// ============================================================
+// CALCULATE AGE
+// ============================================================
+
+function calculateAge(
+    dob,
+    referenceDate = new Date()
+) {
+    if (!dob) {
+        return null;
+    }
+
+    const birthDate =
+        new Date(dob);
+
+    const currentDate =
+        new Date(referenceDate);
+
+    if (
+        Number.isNaN(
+            birthDate.getTime()
+        ) ||
+        Number.isNaN(
+            currentDate.getTime()
+        )
+    ) {
+        return null;
+    }
+
+    let age =
+        currentDate.getUTCFullYear() -
+        birthDate.getUTCFullYear();
+
+    const currentMonth =
+        currentDate.getUTCMonth();
+
+    const birthMonth =
+        birthDate.getUTCMonth();
+
+    const currentDay =
+        currentDate.getUTCDate();
+
+    const birthDay =
+        birthDate.getUTCDate();
+
+    const birthdayNotReached =
+        currentMonth < birthMonth ||
+        (
+            currentMonth === birthMonth &&
+            currentDay < birthDay
+        );
+
+    if (birthdayNotReached) {
+        age--;
+    }
+
+    if (age < 0) {
+        return null;
+    }
+
+    return age;
+}
+
+
 // ============================================================
 // BMI
 // ============================================================
@@ -29,12 +94,31 @@ function calculateBMI(
     );
 }
 
+
 // ============================================================
 // BMI CATEGORY
+// Adult BMI categories are only used for age 20+
 // ============================================================
 
-function getBMICategory(bmi) {
+function getBMICategory(
+    bmi,
+    dob,
+    referenceDate = new Date()
+) {
     if (bmi === null) {
+        return null;
+    }
+
+    const age =
+        calculateAge(
+            dob,
+            referenceDate
+        );
+
+    if (
+        age === null ||
+        age < 20
+    ) {
         return null;
     }
 
@@ -53,15 +137,36 @@ function getBMICategory(bmi) {
     return "Obesity";
 }
 
+
 // ============================================================
 // HEALTHY WEIGHT RANGE
+// Adult BMI range is only used for age 20+
 // ============================================================
 
 function calculateHealthyWeightRange(
-    heightCm
+    heightCm,
+    dob,
+    referenceDate = new Date()
 ) {
+    const age =
+        calculateAge(
+            dob,
+            referenceDate
+        );
+
+    if (
+        age === null ||
+        age < 20
+    ) {
+        return null;
+    }
+
     const heightM =
         heightCm / 100;
+
+    if (heightM <= 0) {
+        return null;
+    }
 
     return {
         minimum_kg:
@@ -79,6 +184,7 @@ function calculateHealthyWeightRange(
             )
     };
 }
+
 
 // ============================================================
 // BODY FAT
@@ -161,11 +267,13 @@ function calculateBodyFat(
     );
 }
 
+
 // ============================================================
 // EXPORT
 // ============================================================
 
 module.exports = {
+    calculateAge,
     calculateBMI,
     getBMICategory,
     calculateHealthyWeightRange,

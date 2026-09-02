@@ -369,7 +369,8 @@ const createProfile = async (
                         getBMICategory(
                             result
                                 .weightRecord
-                                .bmi
+                                .bmi,
+                            dob
                         )
                 }
                 : null;
@@ -390,7 +391,8 @@ const createProfile = async (
 
                 healthy_weight_range:
                     calculateHealthyWeightRange(
-                        height
+                        height,
+                        dob
                     ),
 
                 initial_weight_record:
@@ -506,8 +508,8 @@ const getProfile = async (
 
                 healthy_weight_range:
                     calculateHealthyWeightRange(
-                        profile
-                            .height_cm
+                        profile.height_cm,
+                        profile.dob
                     )
             });
 
@@ -582,21 +584,22 @@ const updateProfile = async (
         // ====================================================
         // VALIDATE DOB IF SUPPLIED
         // ====================================================
-
-        if (
-            dob !== undefined &&
-            dob !== "" &&
-            !isValidDateString(
-                dob
-            )
-        ) {
-            return res
-                .status(400)
-                .json({
-                    error:
-                        "DOB must be a valid date in YYYY-MM-DD format"
-                });
-        }
+if (
+    dob !== undefined &&
+    (
+        dob === "" ||
+        !isValidDateString(
+            dob
+        )
+    )
+) {
+    return res
+        .status(400)
+        .json({
+            error:
+                "DOB must be a valid date in YYYY-MM-DD format"
+        });
+}
 
 
         // ====================================================
@@ -752,13 +755,11 @@ const updateProfile = async (
                 normalizedActivityLevel;
         }
         if (
-            dob !== undefined
-        ) {
-            bodyProfile.dob =
-                dob === ""
-                    ? null
-                    : dob;
-        }
+    dob !== undefined
+) {
+    bodyProfile.dob =
+        dob;
+}
 
 
         if (

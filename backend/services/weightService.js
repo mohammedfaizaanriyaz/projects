@@ -13,7 +13,8 @@ const getBodyProfile = async (profileId) => {
             waist_cm,
             chest_cm,
             neck_cm,
-            hip_cm
+            hip_cm,
+            dob
 
         FROM body_profile
 
@@ -139,26 +140,32 @@ const getWeightHistory = async (
     return pool.query(
         `
         SELECT
-            weight_id,
-            profile_id,
-            weight_kg,
-            bmi,
-            body_fat_percentage,
-            recorded_date,
-            created_at
+            wr.weight_id,
+            wr.profile_id,
+            wr.weight_kg,
+            wr.bmi,
+            wr.body_fat_percentage,
+            wr.recorded_date,
+            wr.created_at,
 
-        FROM weight_records
+            bp.dob
 
-        WHERE profile_id = ?
+        FROM weight_records wr
+
+        JOIN body_profile bp
+            ON wr.profile_id =
+               bp.profile_id
+
+        WHERE
+            wr.profile_id = ?
 
         ORDER BY
-            recorded_date ASC,
-            weight_id ASC
+            wr.recorded_date ASC,
+            wr.weight_id ASC
         `,
         [profileId]
     );
 };
-
 // ============================================================
 // EXPORT SERVICES
 // ============================================================

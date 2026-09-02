@@ -200,7 +200,10 @@ const createWeightRecord = async (
 
                     bmi_category:
                         getBMICategory(
-                            bmi
+                            bmi,
+                            profile.dob,
+                            recorded_date ||
+                            new Date()
                         ),
 
                     body_fat_percentage:
@@ -243,27 +246,43 @@ const getWeightHistory = async (
                 .getWeightHistory(profileId);
 
         const records =
-            rows.map((row) => ({
-                ...row,
+    rows.map((row) => {
 
-                weight_kg:
-                    Number(row.weight_kg),
+        const {
+            dob,
+            ...record
+        } = row;
 
-                bmi:
-                    numberOrNull(row.bmi),
+        return {
+            ...record,
 
-                body_fat_percentage:
-                    numberOrNull(
-                        row.body_fat_percentage
-                    ),
+            weight_kg:
+                Number(
+                    row.weight_kg
+                ),
 
-                bmi_category:
-                    row.bmi !== null
-                        ? getBMICategory(
-                            Number(row.bmi)
-                        )
-                        : null
-            }));
+            bmi:
+                numberOrNull(
+                    row.bmi
+                ),
+
+            body_fat_percentage:
+                numberOrNull(
+                    row.body_fat_percentage
+                ),
+
+            bmi_category:
+                row.bmi !== null
+                    ? getBMICategory(
+                        Number(
+                            row.bmi
+                        ),
+                        dob,
+                        row.recorded_date
+                    )
+                    : null
+        };
+    });
 
         return res.status(200).json(
             records

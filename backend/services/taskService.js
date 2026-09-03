@@ -333,27 +333,40 @@ const updateTask = async ({
             ON t.list_id = tl.list_id
 
         SET
-            t.title = ?,
-            t.description = ?,
-            t.time_limit_minutes = ?,
-            t.due_at = ?,
-            t.reminder_at = ?
+    t.title = ?,
+    t.description = ?,
+    t.time_limit_minutes = ?,
+    t.due_at = ?,
+
+    t.reminder_sent_at =
+        CASE
+            WHEN NOT (
+                t.reminder_at <=> ?
+            )
+            THEN NULL
+            ELSE t.reminder_sent_at
+        END,
+
+    t.reminder_at = ?
 
         WHERE
             tl.user_id = ?
             AND t.list_id = ?
             AND t.task_id = ?
         `,
-        [
-            title,
-            description,
-            timeLimitMinutes,
-            dueAt,
-            reminderAt,
-            userId,
-            listId,
-            taskId
-        ]
+       [
+    title,
+    description,
+    timeLimitMinutes,
+    dueAt,
+
+    reminderAt,
+    reminderAt,
+
+    userId,
+    listId,
+    taskId
+]
     );
 };
 

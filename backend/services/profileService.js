@@ -285,9 +285,10 @@ const getProfileById =
 const updateProfileName =
     async (
         profileId,
-        profileName
+        profileName,
+        connection = pool
     ) => {
-        return pool.query(
+        return connection.query(
             `
             UPDATE profiles
 
@@ -310,7 +311,8 @@ const updateProfileName =
 const updateBodyProfile =
     async (
         profileId,
-        updates
+        updates,
+        connection = pool
     ) => {
 
         const fields = [];
@@ -528,7 +530,7 @@ const updateBodyProfile =
         // UPDATE DATABASE
         // ====================================================
 
-        return pool.query(
+        return connection.query(
             `
             UPDATE body_profile
 
@@ -561,6 +563,71 @@ const deleteProfile =
 
         return result.affectedRows > 0;
     };
+    // ============================================================
+// UPDATE PROFILE WITH TRANSACTION
+// ============================================================
+
+const updateProfileTransaction =
+    async ({
+        profileId,
+        profileName,
+        bodyProfile
+    }) => {
+
+        let connection;
+
+        try {
+            connection =
+                await pool.getConnection();
+
+            await connection
+                .beginTransaction();
+
+            // Update profile name
+            if (
+                profileName !== undefined
+            ) {
+                await updateProfileName(
+                    profileId,
+                    profileName,
+                    connection
+                );
+            }
+
+            // Update body information
+            if (
+                Object.keys(
+                    bodyProfile
+                ).length > 0
+            ) {
+                await updateBodyProfile(
+                    profileId,
+                    bodyProfile,
+                    connection
+                );
+            }
+
+            await connection.commit();
+
+        } catch (error) {
+
+            if (connection) {
+                try {
+                    await connection.rollback();
+                } catch {
+                    // Ignore rollback failure
+                }
+            }
+
+            throw error;
+
+        } finally {
+
+            if (connection) {
+                connection.release();
+            }
+        }
+    };
 
 // ============================================================
 // EXPORT SERVICES
@@ -572,5 +639,6 @@ module.exports = {
     getProfileById,
     updateProfileName,
     updateBodyProfile,
+    updateProfileTransaction,
     deleteProfile
 };

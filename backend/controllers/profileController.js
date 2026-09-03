@@ -719,31 +719,25 @@ if (
         // UPDATE PROFILE NAME
         // ====================================================
 
-        if (
-            profile_name !==
-            undefined
-        ) {
-            const cleanedName =
-                String(
-                    profile_name
-                ).trim();
+      let cleanedName;
 
-            if (!cleanedName) {
-                return res
-                    .status(400)
-                    .json({
-                        error:
-                            "Profile name cannot be empty"
-                    });
-            }
+if (
+    profile_name !== undefined
+) {
+    cleanedName =
+        String(
+            profile_name
+        ).trim();
 
-            await profileService
-                .updateProfileName(
-                    profileId,
-                    cleanedName
-                );
-        }
-
+    if (!cleanedName) {
+        return res
+            .status(400)
+            .json({
+                error:
+                    "Profile name cannot be empty"
+            });
+    }
+}
 
         // ====================================================
         // PREPARE BODY PROFILE UPDATE
@@ -841,17 +835,13 @@ if (
         // UPDATE BODY PROFILE
         // ====================================================
 
-        if (
-            Object.keys(
-                bodyProfile
-            ).length > 0
-        ) {
-            await profileService
-                .updateBodyProfile(
-                    profileId,
-                    bodyProfile
-                );
-        }
+        await profileService
+    .updateProfileTransaction({
+        profileId,
+        profileName:
+            cleanedName,
+        bodyProfile
+    });
 
 
         return res

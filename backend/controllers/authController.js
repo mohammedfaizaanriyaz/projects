@@ -62,7 +62,7 @@ const register = async (
         if (
             !email ||
             typeof email !==
-                "string"
+            "string"
         ) {
             return res
                 .status(400)
@@ -95,7 +95,7 @@ const register = async (
 
         if (
             typeof password !==
-                "string" ||
+            "string" ||
             password.length < 8
         ) {
             return res

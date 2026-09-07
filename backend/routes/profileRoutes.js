@@ -1,52 +1,104 @@
-const express = require("express");
+const express =
+    require("express");
+
+
 const requireAuth =
     require(
         "../middleware/requireAuth"
     );
+
 
 const requireProfileOwnership =
     require(
         "../middleware/requireProfileOwnership"
     );
 
+
 const {
     getProfile,
     updateProfile,
     deleteProfile
-} = require("../controllers/profileController");
+} = require(
+    "../controllers/profileController"
+);
+
 
 const weightRoutes =
-    require("./weightRoutes");
+    require(
+        "./weightRoutes"
+    );
 
-const router = express.Router();
+
+const nutritionLogRoutes =
+    require(
+        "./nutritionLogRoutes"
+    );
+
+
+const router =
+    express.Router();
+
+
+// ============================================================
+// PROTECT EVERYTHING UNDER PROFILE ID
+// ============================================================
+
 router.use(
     "/:profileId",
     requireAuth,
     requireProfileOwnership
 );
 
-// Weight routes belonging to a profile
+
+// ============================================================
+// WEIGHT ROUTES
+// ============================================================
+
 router.use(
     "/:profileId/weight-records",
     weightRoutes
 );
 
-// Get one profile
+
+// ============================================================
+// NUTRITION LOG ROUTES
+// ============================================================
+
+router.use(
+    "/:profileId/nutrition-logs",
+    nutritionLogRoutes
+);
+
+
+// ============================================================
+// GET PROFILE
+// ============================================================
+
 router.get(
     "/:profileId",
     getProfile
 );
 
-// Update profile
+
+// ============================================================
+// UPDATE PROFILE
+// ============================================================
+
 router.put(
     "/:profileId",
     updateProfile
 );
 
-// Delete profile
+
+// ============================================================
+// DELETE PROFILE
+// ============================================================
+
 router.delete(
     "/:profileId",
     deleteProfile
 );
 
-module.exports = router;
+
+module.exports =
+    router;

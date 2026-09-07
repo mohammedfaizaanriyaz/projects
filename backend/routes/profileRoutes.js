@@ -1,4 +1,13 @@
 const express = require("express");
+const requireAuth =
+    require(
+        "../middleware/requireAuth"
+    );
+
+const requireProfileOwnership =
+    require(
+        "../middleware/requireProfileOwnership"
+    );
 
 const {
     getProfile,
@@ -10,6 +19,11 @@ const weightRoutes =
     require("./weightRoutes");
 
 const router = express.Router();
+router.use(
+    "/:profileId",
+    requireAuth,
+    requireProfileOwnership
+);
 
 // Weight routes belonging to a profile
 router.use(

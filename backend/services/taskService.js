@@ -451,7 +451,9 @@ const deleteTask = async (
 // GET DUE REMINDERS
 // ============================================================
 
-const getDueReminders = async () => {
+const getDueReminders = async (
+    userId
+) => {
 
     return pool.query(
         `
@@ -470,14 +472,18 @@ const getDueReminders = async () => {
             ON t.list_id = tl.list_id
 
         WHERE
-            t.reminder_at IS NOT NULL
+            tl.user_id = ?
+            AND t.reminder_at IS NOT NULL
             AND t.reminder_at <= NOW()
             AND t.reminder_sent_at IS NULL
             AND t.is_completed = FALSE
 
         ORDER BY
             t.reminder_at ASC
-        `
+        `,
+        [
+            userId
+        ]
     );
 };
 
@@ -485,22 +491,30 @@ const getDueReminders = async () => {
 // ============================================================
 // MARK REMINDER AS SENT
 // ============================================================
-
 const markReminderAsSent = async (
+    userId,
     taskId
 ) => {
 
     return pool.query(
         `
-        UPDATE tasks
+        UPDATE tasks t
+
+        INNER JOIN task_lists tl
+            ON t.list_id = tl.list_id
 
         SET
-            reminder_sent_at = NOW()
+            t.reminder_sent_at = NOW()
 
         WHERE
-            task_id = ?
+            tl.user_id = ?
+            AND t.task_id = ?
+            AND t.reminder_sent_at IS NULL
         `,
-        [taskId]
+        [
+            userId,
+            taskId
+        ]
     );
 };
 // ============================================================

@@ -1,20 +1,6 @@
 const pool = require("../db");
 
-// ============================================================
-// CREATE USER
-// ============================================================
 
-const createUser = async (name) => {
-    const result = await pool.query(
-        `
-        INSERT INTO users (name)
-        VALUES (?)
-        `,
-        [name]
-    );
-
-    return Number(result.insertId);
-};
 // ============================================================
 // CREATE AUTHENTICATED ACCOUNT
 // ============================================================
@@ -102,7 +88,7 @@ const findUserById = async (userId) => {
 // EXPORT SERVICES
 // ============================================================
 module.exports = {
-    createUser,
+    
     createAccount,
     findUserById,
     findUserByEmail

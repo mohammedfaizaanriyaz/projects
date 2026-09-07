@@ -1,7 +1,14 @@
 const express = require("express");
 
+const requireAuth =
+    require("../middleware/requireAuth");
+
+const requireUserOwnership =
+    require(
+        "../middleware/requireUserOwnership"
+    );
+
 const {
-    createUser,
     getUser
 } = require(
     "../controllers/userController"
@@ -14,12 +21,44 @@ const {
     "../controllers/profileController"
 );
 
+const {
+    getDueRemindersByUser,
+    acknowledgeReminder
+} = require(
+    "../controllers/taskController"
+);
 
 const taskListRoutes =
     require("./taskListRoutes");
 
 
-const router = express.Router();
+const router =
+    express.Router();
+
+
+// ============================================================
+// PROTECT USER DATA
+// ============================================================
+
+router.use(
+    "/:userId",
+    requireAuth,
+    requireUserOwnership
+);
+
+
+// ============================================================
+// DUE REMINDERS FOR USER
+// ============================================================
+
+router.get(
+    "/:userId/reminders/due",
+    getDueRemindersByUser
+);
+router.post(
+    "/:userId/reminders/:taskId/acknowledge",
+    acknowledgeReminder
+);
 
 
 // ============================================================
@@ -33,35 +72,34 @@ router.use(
 
 
 // ============================================================
-// USER ROUTES
+// GET MAIN USER
 // ============================================================
 
-// Create main user
-router.post(
-    "/",
-    createUser
-);
-
-
-// Get main user
 router.get(
     "/:userId",
     getUser
 );
 
 
-// Create profile under a user
+// ============================================================
+// CREATE PROFILE UNDER USER
+// ============================================================
+
 router.post(
     "/:userId/profiles",
     createProfile
 );
 
 
-// Get all profiles of a user
+// ============================================================
+// GET ALL PROFILES OF USER
+// ============================================================
+
 router.get(
     "/:userId/profiles",
     getProfilesByUser
 );
 
 
-module.exports = router;
+module.exports =
+    router;

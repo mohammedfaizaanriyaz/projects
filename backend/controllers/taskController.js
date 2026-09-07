@@ -1086,6 +1086,120 @@ const deleteTask = async (
         next(error);
     }
 };
+// ============================================================
+// GET DUE REMINDERS FOR USER
+// ============================================================
+
+const getDueRemindersByUser = async (
+    req,
+    res,
+    next
+) => {
+
+    try {
+
+        const userId =
+            Number(
+                req.params.userId
+            );
+
+        if (!isValidId(userId)) {
+            return res
+                .status(400)
+                .json({
+                    error:
+                        "Invalid user ID"
+                });
+        }
+
+
+        const reminders =
+            await taskService
+                .getDueReminders(
+                    userId
+                );
+
+
+        return res
+            .status(200)
+            .json(
+                reminders
+            );
+
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+// ============================================================
+// ACKNOWLEDGE REMINDER
+// ============================================================
+
+const acknowledgeReminder = async (
+    req,
+    res,
+    next
+) => {
+
+    try {
+
+        const userId =
+            Number(
+                req.params.userId
+            );
+
+        const taskId =
+            Number(
+                req.params.taskId
+            );
+
+
+        if (
+            !isValidId(userId) ||
+            !isValidId(taskId)
+        ) {
+            return res
+                .status(400)
+                .json({
+                    error:
+                        "Invalid user or task ID"
+                });
+        }
+
+
+        const result =
+            await taskService
+                .markReminderAsSent(
+                    userId,
+                    taskId
+                );
+
+
+        if (
+            !result ||
+            result.affectedRows === 0
+        ) {
+            return res
+                .status(404)
+                .json({
+                    error:
+                        "Reminder not found or already acknowledged"
+                });
+        }
+
+
+        return res
+            .status(200)
+            .json({
+                message:
+                    "Reminder acknowledged"
+            });
+
+    } catch (error) {
+        next(error);
+    }
+};
 
 
 // ============================================================
@@ -1102,5 +1216,8 @@ module.exports = {
     getTasksByList,
     updateTask,
     updateTaskCompletion,
-    deleteTask
+    deleteTask,
+
+    getDueRemindersByUser,
+    acknowledgeReminder
 };

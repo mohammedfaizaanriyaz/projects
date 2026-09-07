@@ -7,45 +7,7 @@ const {
     "../utils/numberUtils"
 );
 
-// ============================================================
-// CREATE USER
-// ============================================================
 
-const createUser = async (
-    req,
-    res,
-    next
-) => {
-    try {
-        const { name } = req.body;
-
-        if (
-            !name ||
-            !name.trim()
-        ) {
-            return res.status(400).json({
-                error:
-                    "Name is required"
-            });
-        }
-
-        const userId =
-            await userService.createUser(
-                name.trim()
-            );
-
-        res.status(201).json({
-            message:
-                "User created successfully",
-
-            user_id:
-                userId
-        });
-
-    } catch (error) {
-        next(error);
-    }
-};
 
 // ============================================================
 // GET USER
@@ -91,6 +53,6 @@ const getUser = async (
 };
 
 module.exports = {
-    createUser,
+    
     getUser
 };

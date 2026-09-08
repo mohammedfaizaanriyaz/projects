@@ -1,36 +1,105 @@
 const express = require("express");
 
-const { createUser, getUser } = require("../controllers/userController");
+const requireAuth =
+    require("../middleware/requireAuth");
+
+const requireUserOwnership =
+    require(
+        "../middleware/requireUserOwnership"
+    );
 
 const {
-  createProfile,
-  getProfilesByUser,
-} = require("../controllers/profileController");
+    getUser
+} = require(
+    "../controllers/userController"
+);
 
-const taskListRoutes = require("./taskListRoutes");
+const {
+    createProfile,
+    getProfilesByUser
+} = require(
+    "../controllers/profileController"
+);
 
-const router = express.Router();
+const {
+    getDueRemindersByUser,
+    acknowledgeReminder
+} = require(
+    "../controllers/taskController"
+);
+
+const taskListRoutes =
+    require("./taskListRoutes");
+
+
+const router =
+    express.Router();
+
+
+// ============================================================
+// PROTECT USER DATA
+// ============================================================
+
+router.use(
+    "/:userId",
+    requireAuth,
+    requireUserOwnership
+);
+
+
+// ============================================================
+// DUE REMINDERS FOR USER
+// ============================================================
+
+router.get(
+    "/:userId/reminders/due",
+    getDueRemindersByUser
+);
+router.post(
+    "/:userId/reminders/:taskId/acknowledge",
+    acknowledgeReminder
+);
+
 
 // ============================================================
 // TASK LISTS BELONGING TO USER
 // ============================================================
 
-router.use("/:userId/task-lists", taskListRoutes);
+router.use(
+    "/:userId/task-lists",
+    taskListRoutes
+);
+
 
 // ============================================================
-// USER ROUTES
+// GET MAIN USER
 // ============================================================
 
-// Create main user
-router.post("/", createUser);
+router.get(
+    "/:userId",
+    getUser
+);
 
-// Get main user
-router.get("/:userId", getUser);
 
-// Create profile under a user
-router.post("/:userId/profiles", createProfile);
+// ============================================================
+// CREATE PROFILE UNDER USER
+// ============================================================
 
-// Get all profiles of a user
-router.get("/:userId/profiles", getProfilesByUser);
+router.post(
+    "/:userId/profiles",
+    createProfile
+);
 
-module.exports = router;
+
+// ============================================================
+// GET ALL PROFILES OF USER
+// ============================================================
+
+router.get(
+    "/:userId/profiles",
+    getProfilesByUser
+);
+
+
+module.exports =
+    router;

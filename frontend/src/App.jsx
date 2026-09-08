@@ -28,36 +28,85 @@ import "./App.css";
 const API = "http://localhost:5000";
 
 export default function App() {
-  const [userId, setUserId] = useState(() =>
-    localStorage.getItem("weight_tracker_user_id"),
+  const [
+    userId,
+    setUserId,
+  ] = useState(
+    () =>
+      localStorage.getItem(
+        "weight_tracker_user_id"
+      )
   );
 
-  const [profiles, setProfiles] = useState([]);
+  const [
+    profiles,
+    setProfiles,
+  ] = useState([]);
 
-  const [selectedProfileId, setSelectedProfileId] = useState(null);
+  const [
+    selectedProfileId,
+    setSelectedProfileId,
+  ] = useState(null);
 
-  const [profile, setProfile] = useState(null);
+  const [
+    profile,
+    setProfile,
+  ] = useState(null);
 
-  const [history, setHistory] = useState([]);
+  const [
+    history,
+    setHistory,
+  ] = useState([]);
 
-  const [loading, setLoading] = useState(true);
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
 
-  const [error, setError] = useState("");
+  const [
+    error,
+    setError,
+  ] = useState("");
 
-  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [
+    showProfileModal,
+    setShowProfileModal,
+  ] = useState(false);
 
-  const [showWeightModal, setShowWeightModal] = useState(false);
+  const [
+    showWeightModal,
+    setShowWeightModal,
+  ] = useState(false);
 
-  const [editingProfile, setEditingProfile] = useState(false);
+  const [
+    editingProfile,
+    setEditingProfile,
+  ] = useState(false);
 
-  const [mobileMenu, setMobileMenu] = useState(false);
 
-  const [preferredWeightUnit, setPreferredWeightUnit] = useState(
-    () => localStorage.getItem("weight_unit") || "kg",
+  const [
+    mobileMenu,
+    setMobileMenu,
+  ] = useState(false);
+
+  const [
+    preferredWeightUnit,
+    setPreferredWeightUnit,
+  ] = useState(
+    () =>
+      localStorage.getItem(
+        "weight_unit"
+      ) || "kg"
   );
 
-  const [preferredLengthUnit, setPreferredLengthUnit] = useState(
-    () => localStorage.getItem("length_unit") || "cm",
+  const [
+    preferredLengthUnit,
+    setPreferredLengthUnit,
+  ] = useState(
+    () =>
+      localStorage.getItem(
+        "length_unit"
+      ) || "cm"
   );
 
   function changeWeightUnit(unit) {
@@ -74,17 +123,42 @@ export default function App() {
   // INITIAL LOAD
   // ==========================================================
 
-  useEffect(() => {
+useEffect(() => {
+  async function initializeUser() {
     if (!userId) {
       setLoading(false);
+      setShowProfileModal(true);
+      return;
+    }
 
+    const userExists =
+      await validateStoredUser(
+        userId
+      );
+
+    if (!userExists) {
+      localStorage.removeItem(
+        "weight_tracker_user_id"
+      );
+
+      setUserId(null);
+
+      setProfiles([]);
+      setSelectedProfileId(null);
+      setProfile(null);
+      setHistory([]);
+
+      setLoading(false);
       setShowProfileModal(true);
 
       return;
     }
 
-    loadProfiles(userId);
-  }, [userId]);
+    await loadProfiles(userId);
+  }
+
+  initializeUser();
+}, [userId]);
 
   // ==========================================================
   // LOAD SELECTED PROFILE
@@ -95,87 +169,149 @@ export default function App() {
       return;
     }
 
-    loadProfile(selectedProfileId);
+    loadProfile(
+      selectedProfileId
+    );
 
-    loadHistory(selectedProfileId);
-  }, [selectedProfileId]);
+    loadHistory(
+      selectedProfileId
+    );
+  }, [
+    selectedProfileId,
+  ]);
 
   // ==========================================================
   // API
   // ==========================================================
 
-  async function request(url, options = {}) {
-    const response = await fetch(`${API}${url}`, {
-      headers: {
-        "Content-Type": "application/json",
+  async function request(
+    url,
+    options = {}
+  ) {
+    const response =
+      await fetch(
+        `${API}${url}`,
+        {
+          headers: {
+            "Content-Type":
+              "application/json",
 
-        ...(options.headers || {}),
-      },
+            ...(options.headers ||
+              {}),
+          },
 
-      ...options,
-    });
+          ...options,
+        }
+      );
 
     let data;
 
     try {
-      data = await response.json();
+      data =
+        await response.json();
     } catch {
       data = {};
     }
 
     if (!response.ok) {
-      throw new Error(data.error || "Request failed");
+      throw new Error(
+        data.error ||
+        "Request failed"
+      );
     }
 
     return data;
   }
+  async function validateStoredUser(id) {
+  try {
+    await request(
+      `/api/users/${id}`
+    );
 
-  async function loadProfiles(id) {
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+  async function loadProfiles(
+    id
+  ) {
     try {
       setLoading(true);
       setError("");
 
-      const data = await request(`/api/users/${id}/profiles`);
+      const data =
+        await request(
+          `/api/users/${id}/profiles`
+        );
 
       setProfiles(data);
 
-      if (data.length > 0) {
-        setSelectedProfileId((current) =>
-          current && data.some((item) => item.profile_id === current)
-            ? current
-            : data[0].profile_id,
+      if (
+        data.length > 0
+      ) {
+        setSelectedProfileId(
+          (current) =>
+            current &&
+              data.some(
+                (item) =>
+                  item.profile_id ===
+                  current
+              )
+              ? current
+              : data[0]
+                .profile_id
         );
       } else {
-        setSelectedProfileId(null);
+        setSelectedProfileId(
+          null
+        );
 
         setProfile(null);
 
         setHistory([]);
       }
     } catch (err) {
-      setError(err.message);
+      setError(
+        err.message
+      );
     } finally {
       setLoading(false);
     }
   }
 
-  async function loadProfile(id) {
+  async function loadProfile(
+    id
+  ) {
     try {
-      const data = await request(`/api/profiles/${id}`);
+      const data =
+        await request(
+          `/api/profiles/${id}`
+        );
 
       setProfile(data);
     } catch (err) {
-      setError(err.message);
+      setError(
+        err.message
+      );
     }
   }
 
-  async function loadHistory(id) {
+  async function loadHistory(
+    id
+  ) {
     try {
-      const data = await request(`/api/profiles/${id}/weight-records`);
+      const data =
+        await request(
+          `/api/profiles/${id}/weight-records`
+        );
 
       setHistory(data);
     } catch (err) {
-      setError(err.message);
+      setError(
+        err.message
+      );
     }
   }
 
@@ -183,74 +319,137 @@ export default function App() {
   // CREATE FIRST ACCOUNT / PROFILE
   // ==========================================================
 
-  async function createProfile(form) {
+  async function createProfile(
+    form
+  ) {
     try {
       setError("");
 
-      let ownerId = userId;
+      let ownerId =
+        userId;
 
       if (!ownerId) {
-        const owner = await request("/api/users", {
-          method: "POST",
+        const owner =
+          await request(
+            "/api/users",
+            {
+              method: "POST",
 
-          body: JSON.stringify({
-            name: form.profile_name,
-          }),
-        });
+              body: JSON.stringify({
+                name:
+                  form.profile_name,
+              }),
+            }
+          );
 
-        ownerId = owner.user_id;
+        ownerId =
+          owner.user_id;
 
-        localStorage.setItem("weight_tracker_user_id", ownerId);
+        localStorage.setItem(
+          "weight_tracker_user_id",
+          ownerId
+        );
 
         setUserId(ownerId);
       }
 
       const heightCm =
-        form.heightUnit === "ft-in"
-          ? feetInchesToCm(form.heightFeet, form.heightInches)
-          : lengthToCm(form.heightValue, form.heightUnit);
+        form.heightUnit ===
+          "ft-in"
+          ? feetInchesToCm(
+            form.heightFeet,
+            form.heightInches
+          )
+          : lengthToCm(
+            form.heightValue,
+            form.heightUnit
+          );
 
-      const currentWeightKg = weightToKg(form.currentWeight, form.weightUnit);
+      const currentWeightKg =
+        weightToKg(
+          form.currentWeight,
+          form.weightUnit
+        );
 
-      const targetWeightKg = weightToKg(
-        form.targetWeight,
-        form.targetWeightUnit,
-      );
+      const targetWeightKg =
+        weightToKg(
+          form.targetWeight,
+          form.targetWeightUnit
+        );
 
       const payload = {
-        profile_name: form.profile_name,
+        profile_name:
+          form.profile_name,
 
-        dob: form.dob,
+        dob:
+          form.dob,
 
-        gender: form.gender,
+        gender:
+          form.gender,
 
-        height_cm: heightCm,
+        height_cm:
+          heightCm,
 
-        current_weight_kg: currentWeightKg,
+        current_weight_kg:
+          currentWeightKg,
 
-        target_weight_kg: targetWeightKg,
+        target_weight_kg:
+          targetWeightKg,
 
-        waist_cm: lengthToCm(form.waist, form.waistUnit),
+        waist_cm:
+          lengthToCm(
+            form.waist,
+            form.waistUnit
+          ),
 
-        chest_cm: lengthToCm(form.chest, form.chestUnit),
+        chest_cm:
+          lengthToCm(
+            form.chest,
+            form.chestUnit
+          ),
 
-        neck_cm: lengthToCm(form.neck, form.neckUnit),
+        neck_cm:
+          lengthToCm(
+            form.neck,
+            form.neckUnit
+          ),
 
-        hip_cm: form.hip ? lengthToCm(form.hip, form.hipUnit) : null,
+        hip_cm:
+          form.hip
+            ? lengthToCm(
+              form.hip,
+              form.hipUnit
+            )
+            : null,
       };
 
-      const result = await request(`/api/users/${ownerId}/profiles`, {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
+      const result =
+        await request(
+          `/api/users/${ownerId}/profiles`,
+          {
+            method: "POST",
+            body:
+              JSON.stringify(
+                payload
+              ),
+          }
+        );
 
-      setShowProfileModal(false);
+      setShowProfileModal(
+        false
+      );
 
-      await loadProfiles(ownerId);
+      await loadProfiles(
+        ownerId
+      );
 
-      setSelectedProfileId(result.profile_id);
+      setSelectedProfileId(
+        result.profile_id
+      );
     } catch (err) {
-      setError(err.message);
+      setError(
+        err.message
+      );
 
       throw err;
     }
@@ -260,39 +459,66 @@ export default function App() {
   // UPDATE PROFILE
   // ==========================================================
 
-  async function updateProfile(values) {
+  async function updateProfile(
+    values
+  ) {
     try {
       const payload = {
-        profile_name: values.profile_name,
+        profile_name:
+          values.profile_name,
 
-        dob: values.dob,
+        dob:
+          values.dob,
 
-        gender: values.gender,
+        gender:
+          values.gender,
 
-        height_cm: values.height_cm,
+        height_cm:
+          values.height_cm,
 
-        waist_cm: values.waist_cm,
+        waist_cm:
+          values.waist_cm,
 
-        chest_cm: values.chest_cm,
+        chest_cm:
+          values.chest_cm,
 
-        neck_cm: values.neck_cm,
+        neck_cm:
+          values.neck_cm,
 
-        hip_cm: values.hip_cm,
+        hip_cm:
+          values.hip_cm,
 
-        target_weight_kg: values.target_weight_kg,
+        target_weight_kg:
+          values.target_weight_kg,
       };
 
-      await request(`/api/profiles/${selectedProfileId}`, {
-        method: "PUT",
+      await request(
+        `/api/profiles/${selectedProfileId}`,
+        {
+          method: "PUT",
 
-        body: JSON.stringify(payload),
-      });
+          body:
+            JSON.stringify(
+              payload
+            ),
+        }
+      );
 
-      setEditingProfile(false);
+      setEditingProfile(
+        false
+      );
 
-      await Promise.all([loadProfile(selectedProfileId), loadProfiles(userId)]);
+      await Promise.all([
+        loadProfile(
+          selectedProfileId
+        ),
+
+        loadProfiles(userId),
+      ]);
     } catch (err) {
-      setError(err.message);
+      setError(
+        err.message
+      );
 
       throw err;
     }
@@ -307,25 +533,34 @@ export default function App() {
       return;
     }
 
-    const ok = window.confirm(
-      `Delete ${profile.profile_name}'s profile and all weight history?`,
-    );
+    const ok =
+      window.confirm(
+        `Delete ${profile.profile_name}'s profile and all weight history?`
+      );
 
     if (!ok) {
       return;
     }
 
     try {
-      await request(`/api/profiles/${profile.profile_id}`, {
-        method: "DELETE",
-      });
+      await request(
+        `/api/profiles/${profile.profile_id}`,
+        {
+          method:
+            "DELETE",
+        }
+      );
 
       setProfile(null);
       setHistory([]);
 
-      await loadProfiles(userId);
+      await loadProfiles(
+        userId
+      );
     } catch (err) {
-      setError(err.message);
+      setError(
+        err.message
+      );
     }
   }
 
@@ -333,47 +568,84 @@ export default function App() {
   // LOG WEIGHT
   // ==========================================================
 
-  async function saveWeight(values) {
+  async function saveWeight(
+    values
+  ) {
     try {
       const payload = {
-        weight_kg: weightToKg(values.weight, values.weightUnit),
+        weight_kg:
+          weightToKg(
+            values.weight,
+            values.weightUnit
+          ),
 
-        recorded_date: values.date,
+        recorded_date:
+          values.date,
 
-        waist_cm: values.waist
-          ? lengthToCm(values.waist, values.lengthUnit)
-          : undefined,
+        waist_cm:
+          values.waist
+            ? lengthToCm(
+              values.waist,
+              values.lengthUnit
+            )
+            : undefined,
 
-        chest_cm: values.chest
-          ? lengthToCm(values.chest, values.lengthUnit)
-          : undefined,
+        chest_cm:
+          values.chest
+            ? lengthToCm(
+              values.chest,
+              values.lengthUnit
+            )
+            : undefined,
 
-        neck_cm: values.neck
-          ? lengthToCm(values.neck, values.lengthUnit)
-          : undefined,
+        neck_cm:
+          values.neck
+            ? lengthToCm(
+              values.neck,
+              values.lengthUnit
+            )
+            : undefined,
 
-        hip_cm: values.hip
-          ? lengthToCm(values.hip, values.lengthUnit)
-          : undefined,
+        hip_cm:
+          values.hip
+            ? lengthToCm(
+              values.hip,
+              values.lengthUnit
+            )
+            : undefined,
       };
 
-      await request(`/api/profiles/${selectedProfileId}/weight-records`, {
-        method: "POST",
+      await request(
+        `/api/profiles/${selectedProfileId}/weight-records`,
+        {
+          method: "POST",
 
-        body: JSON.stringify(payload),
-      });
+          body:
+            JSON.stringify(
+              payload
+            ),
+        }
+      );
 
-      setShowWeightModal(false);
+      setShowWeightModal(
+        false
+      );
 
       await Promise.all([
-        loadHistory(selectedProfileId),
+        loadHistory(
+          selectedProfileId
+        ),
 
-        loadProfile(selectedProfileId),
+        loadProfile(
+          selectedProfileId
+        ),
 
         loadProfiles(userId),
       ]);
     } catch (err) {
-      setError(err.message);
+      setError(
+        err.message
+      );
 
       throw err;
     }
@@ -383,74 +655,149 @@ export default function App() {
   // COMPUTED DATA
   // ==========================================================
 
-  const currentRecord = history.length > 0 ? history[history.length - 1] : null;
+  const currentRecord =
+    history.length > 0
+      ? history[
+      history.length -
+      1
+      ]
+      : null;
 
   const previousRecord =
-    history.length > 1 ? history[history.length - 2] : null;
+    history.length > 1
+      ? history[
+      history.length -
+      2
+      ]
+      : null;
 
-  const currentWeight = currentRecord ? Number(currentRecord.weight_kg) : null;
+  const currentWeight =
+    currentRecord
+      ? Number(
+        currentRecord.weight_kg
+      )
+      : null;
 
-  const previousWeight = previousRecord
-    ? Number(previousRecord.weight_kg)
-    : null;
+  const previousWeight =
+    previousRecord
+      ? Number(
+        previousRecord.weight_kg
+      )
+      : null;
 
   const weightChange =
-    currentWeight !== null && previousWeight !== null
-      ? round(currentWeight - previousWeight, 1)
+    currentWeight !== null &&
+      previousWeight !== null
+      ? round(
+        currentWeight -
+        previousWeight,
+        1
+      )
       : null;
 
   const bmi =
-    currentRecord?.bmi !== null && currentRecord?.bmi !== undefined
-      ? Number(currentRecord.bmi)
-      : profile && currentWeight
-        ? calculateBMI(currentWeight, profile.height_cm)
+    currentRecord?.bmi !==
+      null &&
+      currentRecord?.bmi !==
+      undefined
+      ? Number(
+        currentRecord.bmi
+      )
+      : profile &&
+        currentWeight
+        ? calculateBMI(
+          currentWeight,
+          profile.height_cm
+        )
         : null;
 
   const bodyFat =
-    currentRecord?.body_fat_percentage !== null &&
-    currentRecord?.body_fat_percentage !== undefined
-      ? Number(currentRecord.body_fat_percentage)
+    currentRecord
+      ?.body_fat_percentage !==
+      null &&
+      currentRecord
+        ?.body_fat_percentage !==
+      undefined
+      ? Number(
+        currentRecord.body_fat_percentage
+      )
       : null;
 
   const targetWeight =
-    profile?.target_weight_kg !== null &&
-    profile?.target_weight_kg !== undefined
-      ? Number(profile.target_weight_kg)
+    profile
+      ?.target_weight_kg !==
+      null &&
+      profile
+        ?.target_weight_kg !==
+      undefined
+      ? Number(
+        profile.target_weight_kg
+      )
       : null;
 
   const remaining =
-    currentWeight !== null && targetWeight !== null
-      ? round(Math.abs(currentWeight - targetWeight), 1)
+    currentWeight !== null &&
+      targetWeight !== null
+      ? round(
+        Math.abs(
+          currentWeight -
+          targetWeight
+        ),
+        1
+      )
       : null;
 
   const weightAction =
-    currentWeight !== null && targetWeight !== null
-      ? currentWeight > targetWeight
+    currentWeight !== null &&
+      targetWeight !== null
+      ? currentWeight >
+        targetWeight
         ? "to lose"
-        : currentWeight < targetWeight
+        : currentWeight <
+          targetWeight
           ? "to gain"
           : "goal reached"
       : "";
 
-  const healthy = profile ? healthyRange(profile.height_cm) : null;
+  const healthy =
+    profile
+      ? healthyRange(
+        profile.height_cm
+      )
+      : null;
+
 
   // ==========================================================
   // FIRST PROFILE SETUP
   // ==========================================================
 
-  if (!loading && profiles.length === 0) {
+  if (
+    !loading &&
+    profiles.length === 0
+  ) {
     return (
       <>
         <WelcomeScreen />
 
         <ProfileWizard
-          open={showProfileModal}
+          open={
+            showProfileModal
+          }
           firstProfile
-          onClose={() => {}}
-          onSave={createProfile}
+          onClose={() => { }}
+          onSave={
+            createProfile
+          }
         />
 
-        {error && <ErrorToast message={error} onClose={() => setError("")} />}
+        {error && (
+          <ErrorToast
+            message={error}
+            onClose={() =>
+              setError("")
+            }
+          />
+        )}
       </>
     );
   }
@@ -462,23 +809,47 @@ export default function App() {
   return (
     <div className="app">
       <Sidebar
-        profiles={profiles}
-        selectedId={selectedProfileId}
+        profiles={
+          profiles
+        }
+        selectedId={
+          selectedProfileId
+        }
         onSelect={(id) => {
-          setSelectedProfileId(id);
+          setSelectedProfileId(
+            id
+          );
 
-          setMobileMenu(false);
+          setMobileMenu(
+            false
+          );
         }}
-        onAdd={() => setShowProfileModal(true)}
+        onAdd={() =>
+          setShowProfileModal(
+            true
+          )
+        }
         open={mobileMenu}
-        onClose={() => setMobileMenu(false)}
+        onClose={() =>
+          setMobileMenu(
+            false
+          )
+        }
       />
 
       <main className="main">
         <TopBar
           profile={profile}
-          onMenu={() => setMobileMenu(true)}
-          onLog={() => setShowWeightModal(true)}
+          onMenu={() =>
+            setMobileMenu(
+              true
+            )
+          }
+          onLog={() =>
+            setShowWeightModal(
+              true
+            )
+          }
         />
 
         {loading ? (
@@ -505,27 +876,55 @@ export default function App() {
               />
 
               <GoalCard
-                currentWeight={currentWeight}
-                targetWeight={targetWeight}
-                remaining={remaining}
-                healthy={healthy}
-                unit={preferredWeightUnit}
+                currentWeight={
+                  currentWeight
+                }
+                targetWeight={
+                  targetWeight
+                }
+                remaining={
+                  remaining
+                }
+                healthy={
+                  healthy
+                }
+                unit={
+                  preferredWeightUnit
+                }
               />
             </section>
 
             <section className="bottom-grid">
               <ProfileCard
-                profile={profile}
-                lengthUnit={preferredLengthUnit}
+                profile={
+                  profile
+                }
+                lengthUnit={
+                  preferredLengthUnit
+                }
                 onLengthUnitChange={changeLengthUnit}
-                onEdit={() => setEditingProfile(true)}
-                onDelete={deleteProfile}
+                onEdit={() =>
+                  setEditingProfile(
+                    true
+                  )
+                }
+                onDelete={
+                  deleteProfile
+                }
               />
 
               <HistoryCard
-                history={history}
-                weightUnit={preferredWeightUnit}
-                onLog={() => setShowWeightModal(true)}
+                history={
+                  history
+                }
+                weightUnit={
+                  preferredWeightUnit
+                }
+                onLog={() =>
+                  setShowWeightModal(
+                    true
+                  )
+                }
               />
             </section>
           </>
@@ -533,29 +932,67 @@ export default function App() {
       </main>
 
       <ProfileWizard
-        open={showProfileModal}
-        onClose={() => setShowProfileModal(false)}
-        onSave={createProfile}
+        open={
+          showProfileModal
+        }
+        onClose={() =>
+          setShowProfileModal(
+            false
+          )
+        }
+        onSave={
+          createProfile
+        }
       />
 
-      {editingProfile && profile && (
-        <EditProfileModal
-          profile={profile}
-          onClose={() => setEditingProfile(false)}
-          onSave={updateProfile}
-        />
-      )}
+      {editingProfile &&
+        profile && (
+          <EditProfileModal
+            profile={
+              profile
+            }
+            onClose={() =>
+              setEditingProfile(
+                false
+              )
+            }
+            onSave={
+              updateProfile
+            }
+          />
+        )}
 
       <WeightModal
-        open={showWeightModal}
-        profile={profile}
-        weightUnit={preferredWeightUnit}
-        lengthUnit={preferredLengthUnit}
-        onClose={() => setShowWeightModal(false)}
-        onSave={saveWeight}
+        open={
+          showWeightModal
+        }
+        profile={
+          profile
+        }
+        weightUnit={
+          preferredWeightUnit
+        }
+        lengthUnit={
+          preferredLengthUnit
+        }
+        onClose={() =>
+          setShowWeightModal(
+            false
+          )
+        }
+        onSave={
+          saveWeight
+        }
       />
 
-      {error && <ErrorToast message={error} onClose={() => setError("")} />}
+      {error && (
+        <ErrorToast
+          message={error}
+          onClose={() =>
+            setError("")
+          }
+        />
+      )}
     </div>
   );
 }
@@ -563,3 +1000,4 @@ export default function App() {
 // ============================================================
 // WELCOME
 // ============================================================
+

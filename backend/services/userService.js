@@ -1,46 +1,95 @@
 const pool = require("../db");
 
+
 // ============================================================
-// CREATE USER
+// CREATE AUTHENTICATED ACCOUNT
 // ============================================================
 
-const createUser = async (name) => {
-  const result = await pool.query(
-    `
-        INSERT INTO users (name)
-        VALUES (?)
-        `,
-    [name],
-  );
+const createAccount = async ({
+    name,
+    email,
+    passwordHash
+}) => {
+    const result =
+        await pool.query(
+            `
+            INSERT INTO users
+            (
+                name,
+                email,
+                password_hash
+            )
 
-  return Number(result.insertId);
+            VALUES (?, ?, ?)
+            `,
+            [
+                name,
+                email,
+                passwordHash
+            ]
+        );
+
+    return Number(
+        result.insertId
+    );
 };
+// ============================================================
+// FIND USER BY EMAIL
+// ============================================================
+
+const findUserByEmail = async (
+    email
+) => {
+    const rows =
+        await pool.query(
+            `
+            SELECT
+                user_id,
+                name,
+                email,
+                password_hash,
+                created_at
+
+            FROM users
+
+            WHERE email = ?
+            `,
+            [email]
+        );
+
+    return rows[0] || null;
+};
+
 
 // ============================================================
 // FIND USER BY ID
 // ============================================================
 
 const findUserById = async (userId) => {
-  const rows = await pool.query(
-    `
+    const rows = await pool.query(
+        `
         SELECT
             user_id,
             name,
+            email,
             created_at
+
         FROM users
+
         WHERE user_id = ?
         `,
-    [userId],
-  );
+        [userId]
+    );
 
-  return rows[0] || null;
+    return rows[0] || null;
 };
 
 // ============================================================
 // EXPORT SERVICES
 // ============================================================
-
 module.exports = {
-  createUser,
-  findUserById,
+    
+    createAccount,
+    findUserById,
+    findUserByEmail
 };

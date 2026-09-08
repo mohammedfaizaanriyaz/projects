@@ -10,26 +10,10 @@ export default function GoalCard({
 }) {
   let percentage = 0;
 
-  if (
-    currentWeight &&
-    targetWeight
-  ) {
-    const difference =
-      Math.abs(
-        currentWeight -
-          targetWeight
-      );
+  if (currentWeight && targetWeight) {
+    const difference = Math.abs(currentWeight - targetWeight);
 
-    percentage =
-      Math.max(
-        0,
-        Math.min(
-          100,
-          100 -
-            difference *
-              8
-        )
-      );
+    percentage = Math.max(0, Math.min(100, 100 - difference * 8));
   }
 
   return (
@@ -38,36 +22,19 @@ export default function GoalCard({
         <Goal />
       </div>
 
-      <span className="eyebrow">
-        YOUR GOAL
-      </span>
+      <span className="eyebrow">YOUR GOAL</span>
 
-      <h2>
-        {displayWeight(
-          targetWeight,
-          unit
-        )}
-      </h2>
+      <h2>{displayWeight(targetWeight, unit)}</h2>
 
       <p>
         {remaining !== null
-          ? `${displayWeight(
-              remaining,
-              unit
-            )} remaining`
+          ? `${displayWeight(remaining, unit)} remaining`
           : "Set a goal to track progress"}
       </p>
 
       <div className="progress-ring">
-        <svg
-          viewBox="0 0 130 130"
-        >
-          <circle
-            cx="65"
-            cy="65"
-            r="52"
-            className="ring-track"
-          />
+        <svg viewBox="0 0 130 130">
+          <circle cx="65" cy="65" r="52" className="ring-track" />
 
           <circle
             cx="65"
@@ -75,55 +42,32 @@ export default function GoalCard({
             r="52"
             className="ring-progress"
             style={{
-              strokeDashoffset:
-                327 -
-                (327 *
-                  percentage) /
-                  100,
+              strokeDashoffset: 327 - (327 * percentage) / 100,
             }}
           />
         </svg>
 
         <div>
-          <strong>
-            {Math.round(
-              percentage
-            )}
-            %
-          </strong>
+          <strong>{Math.round(percentage)}%</strong>
 
-          <span>
-            progress
-          </span>
+          <span>progress</span>
         </div>
       </div>
 
       {healthy && (
         <div className="healthy-box">
-          <span>
-            General healthy BMI
-            weight range
-          </span>
+          <span>General healthy BMI weight range</span>
 
           <strong>
-            {displayWeight(
-              healthy.min,
-              unit
-            )}
+            {displayWeight(healthy.min, unit)}
             {" – "}
-            {displayWeight(
-              healthy.max,
-              unit
-            )}
+            {displayWeight(healthy.max, unit)}
           </strong>
         </div>
       )}
 
       <small className="health-note">
-        This range is a
-        general BMI reference,
-        not an appearance
-        standard.
+        This range is a general BMI reference, not an appearance standard.
       </small>
     </article>
   );
@@ -132,4 +76,3 @@ export default function GoalCard({
 // ============================================================
 // PROFILE CARD
 // ============================================================
-

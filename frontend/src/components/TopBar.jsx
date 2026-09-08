@@ -1,10 +1,6 @@
 import { Menu, Plus } from "lucide-react";
 
-export default function TopBar({
-  profile,
-  onMenu,
-  onLog,
-}) {
+export default function TopBar({ profile, onMenu, onLog }) {
   return (
     <header className="topbar">
       <button
@@ -17,31 +13,17 @@ export default function TopBar({
       </button>
 
       <div>
-        <span className="eyebrow">
-          HEALTH DASHBOARD
-        </span>
+        <span className="eyebrow">HEALTH DASHBOARD</span>
 
         <h1>
-          {profile
-            ? `Welcome, ${profile.profile_name}`
-            : "Weight Tracker"}
-          <span className="wave">
-            👋
-          </span>
+          {profile ? `Welcome, ${profile.profile_name}` : "Weight Tracker"}
+          <span className="wave">👋</span>
         </h1>
 
-        <p>
-          Keep showing up.
-          Your progress is
-          being recorded.
-        </p>
+        <p>Keep showing up. Your progress is being recorded.</p>
       </div>
 
-      <button
-        className="primary-button"
-        onClick={onLog}
-        disabled={!profile}
-      >
+      <button className="primary-button" onClick={onLog} disabled={!profile}>
         <Plus />
         Log Weight
       </button>
@@ -52,4 +34,3 @@ export default function TopBar({
 // ============================================================
 // METRIC
 // ============================================================
-

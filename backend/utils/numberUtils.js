@@ -3,9 +3,9 @@
 // ============================================================
 
 function isPositiveNumber(value) {
-    const number = Number(value);
+  const number = Number(value);
 
-    return Number.isFinite(number) && number > 0;
+  return Number.isFinite(number) && number > 0;
 }
 
 // ============================================================
@@ -13,7 +13,7 @@ function isPositiveNumber(value) {
 // ============================================================
 
 function isValidId(value) {
-    return Number.isInteger(value) && value > 0;
+  return Number.isInteger(value) && value > 0;
 }
 
 // ============================================================
@@ -21,19 +21,13 @@ function isValidId(value) {
 // ============================================================
 
 function numberOrNull(value) {
-    if (
-        value === undefined ||
-        value === null ||
-        value === ""
-    ) {
-        return null;
-    }
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
 
-    const number = Number(value);
+  const number = Number(value);
 
-    return Number.isFinite(number)
-        ? number
-        : null;
+  return Number.isFinite(number) ? number : null;
 }
 
 // ============================================================
@@ -41,43 +35,29 @@ function numberOrNull(value) {
 // ============================================================
 
 function positiveNumberOrNull(value) {
-    if (
-        value === undefined ||
-        value === null ||
-        value === ""
-    ) {
-        return null;
-    }
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
 
-    const number = Number(value);
+  const number = Number(value);
 
-    if (
-        !Number.isFinite(number) ||
-        number <= 0
-    ) {
-        return null;
-    }
+  if (!Number.isFinite(number) || number <= 0) {
+    return null;
+  }
 
-    return number;
+  return number;
 }
 
 // ============================================================
 // USE NEW VALUE OR EXISTING VALUE
 // ============================================================
 
-function newOrExisting(
-    newValue,
-    existingValue
-) {
-    if (
-        newValue !== undefined &&
-        newValue !== null &&
-        newValue !== ""
-    ) {
-        return numberOrNull(newValue);
-    }
+function newOrExisting(newValue, existingValue) {
+  if (newValue !== undefined && newValue !== null && newValue !== "") {
+    return numberOrNull(newValue);
+  }
 
-    return numberOrNull(existingValue);
+  return numberOrNull(existingValue);
 }
 
 // ============================================================
@@ -85,9 +65,9 @@ function newOrExisting(
 // ============================================================
 
 module.exports = {
-    isPositiveNumber,
-    isValidId,
-    numberOrNull,
-    positiveNumberOrNull,
-    newOrExisting
+  isPositiveNumber,
+  isValidId,
+  numberOrNull,
+  positiveNumberOrNull,
+  newOrExisting,
 };

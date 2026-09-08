@@ -1,58 +1,31 @@
 const express = require("express");
 
 const {
-    createTaskList,
-    getTaskListsByUser,
-    updateTaskList,
-    deleteTaskList
-} = require(
-    "../controllers/taskController"
-);
+  createTaskList,
+  getTaskListsByUser,
+  updateTaskList,
+  deleteTaskList,
+} = require("../controllers/taskController");
 
+const taskRoutes = require("./taskRoutes");
 
-const taskRoutes =
-    require("./taskRoutes");
-
-
-const router =
-    express.Router({
-        mergeParams: true
-    });
-
+const router = express.Router({
+  mergeParams: true,
+});
 
 // Create new list
-router.post(
-    "/",
-    createTaskList
-);
-
+router.post("/", createTaskList);
 
 // Get all lists
-router.get(
-    "/",
-    getTaskListsByUser
-);
-
+router.get("/", getTaskListsByUser);
 
 // Update list
-router.put(
-    "/:listId",
-    updateTaskList
-);
-
+router.put("/:listId", updateTaskList);
 
 // Delete list
-router.delete(
-    "/:listId",
-    deleteTaskList
-);
-
+router.delete("/:listId", deleteTaskList);
 
 // Tasks belonging to a list
-router.use(
-    "/:listId/tasks",
-    taskRoutes
-);
-
+router.use("/:listId/tasks", taskRoutes);
 
 module.exports = router;

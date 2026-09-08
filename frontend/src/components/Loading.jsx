@@ -3,11 +3,7 @@ export default function Loading() {
     <div className="loading">
       <div className="spinner" />
 
-      <span>
-        Loading your health
-        data...
-      </span>
+      <span>Loading your health data...</span>
     </div>
   );
 }
-

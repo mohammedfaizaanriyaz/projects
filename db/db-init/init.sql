@@ -35,10 +35,13 @@ CREATE TABLE IF NOT EXISTS users (
 
     name VARCHAR(100) NOT NULL,
 
+    email VARCHAR(255) UNIQUE,
+
+    password_hash VARCHAR(255),
+
     created_at TIMESTAMP
         DEFAULT CURRENT_TIMESTAMP
 );
-
 
 -- ============================================================
 -- 2. PROFILES
@@ -252,13 +255,13 @@ completed_at DATETIME,
 -- Helps history queries run faster.
 -- ============================================================
 
-CREATE INDEX idx_weight_profile_date
+CREATE INDEX IF NOT EXISTS idx_weight_profile_date
     ON weight_records(
         profile_id,
         recorded_date
     );
 
-CREATE INDEX idx_measurement_profile_date
+CREATE INDEX IF NOT EXISTS idx_measurement_profile_date
     ON measurement_records(
         profile_id,
         recorded_date

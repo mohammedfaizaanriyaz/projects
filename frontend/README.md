@@ -1,16 +1,83 @@
-# React + Vite
+# VYRA connected frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+This version is matched to the committed backend plus the
+`vyra_backend_daily_nutrition_patch`.
 
-Currently, two official plugins are available:
+## Connected app flow
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Register / login / logout with backend HTTP-only cookie
+- `/api/auth/me` session restore
+- No localStorage user-ID identity
+- Profiles
+- Profile measurements
+- Weight history + real chart
+- Task lists + tasks
+- Reminders
+- USDA FoodData Central search
+- Exact quantity nutrition calculation
+- Add calculated USDA food to:
+  - Breakfast
+  - Lunch
+  - Dinner
+  - Snack
+  - Other
+- Daily MariaDB nutrition log
+- Daily calorie counter
+- Daily protein / carbs / fat / fibre
+- Potassium / sodium / calcium / iron totals
+- Daily food history
+- Delete food from daily log
+- Dashboard nutrition totals
 
-## React Compiler
+## Required backend patch
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Before using Daily Log, apply:
 
-## Expanding the Oxlint configuration
+`vyra_backend_daily_nutrition_patch.zip`
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+and run:
+
+```bash
+sudo mariadb < db/db-init/002_add_nutrition_logs.sql
+```
+
+## Run
+
+Backend:
+
+```bash
+cd ~/my_work/projects/backend
+npm run dev
+```
+
+Frontend:
+
+```bash
+cd ~/my_work/projects/frontend
+npm install
+npm run dev
+```
+
+Frontend `.env`:
+
+```env
+VITE_API_URL=http://localhost:5000
+```
+
+Backend `.env` must include:
+
+```env
+FRONTEND_ORIGIN=http://localhost:5173
+USDA_API_KEY=your_real_key_or_DEMO_KEY
+```
+
+## Nutrition flow
+
+1. Open Nutrition Calculator
+2. Search USDA food
+3. Select exact result
+4. Enter quantity + unit
+5. Calculate
+6. Select meal
+7. Add to daily log
+8. Dashboard + Daily Log update automatically

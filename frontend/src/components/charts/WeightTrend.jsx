@@ -11,32 +11,41 @@ import {
 import GlassCard
   from "../ui/GlassCard";
 
-function formatDate(
-  value
-) {
+function formatDate(value) {
   if (!value) {
     return "";
   }
 
-  const date =
-    new Date(value);
+  const text = String(value);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
 
-  if (
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
-    return String(value);
+  if (!match) {
+    return text;
   }
 
-  return date
-    .toLocaleDateString(
-      undefined,
-      {
-        month: "short",
-        day: "numeric"
-      }
-    );
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+
+  const date = new Date(0);
+
+  date.setUTCFullYear(year, month - 1, day);
+  date.setUTCHours(0, 0, 0, 0);
+
+  const validDate =
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day;
+
+  if (!validDate) {
+    return text;
+  }
+
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC"
+  });
 }
 
 export default function WeightTrend({

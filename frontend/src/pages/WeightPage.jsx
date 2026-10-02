@@ -1,130 +1,219 @@
-import {
-  Plus,
-  Scale
-} from "lucide-react";
+import { Plus, Scale } from "lucide-react";
+import { useLayoutEffect, useRef, useState } from "react";
+import WeightTrend from "../components/charts/WeightTrend";
+import GlassCard from "../components/ui/GlassCard";
+import NeonButton from "../components/ui/NeonButton";
+import PageHeader from "../components/ui/PageHeader";
+import { useApp } from "../context/AppContext";
 
-import {
-  useState
-} from "react";
+const KG_PER_POUND = 0.45359237;
+const CM_PER_INCH = 2.54;
 
-import WeightTrend
-  from "../components/charts/WeightTrend";
+function localToday() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
 
-import GlassCard
-  from "../components/ui/GlassCard";
+  return `${year}-${month}-${day}`;
+}
 
-import NeonButton
-  from "../components/ui/NeonButton";
+function emptyForm(weightUnit, lengthUnit) {
+  return {
+    weight_kg: "",
+    recorded_date: localToday(),
+    waist_cm: "",
+    neck_cm: "",
+    hip_cm: "",
+    weightUnit,
+    lengthUnit,
+  };
+}
 
-import PageHeader
-  from "../components/ui/PageHeader";
+function toStoredMeasurement(value, factor, label, optional = false) {
+  if (value.trim() === "") {
+    if (optional) return null;
+    throw new Error(`${label} is required.`);
+  }
 
-import {
-  useApp
-} from "../context/AppContext";
+  const entered = Number(value);
+
+  if (!Number.isFinite(entered) || entered <= 0) {
+    throw new Error(`${label} must be a positive number.`);
+  }
+
+  const converted = entered * factor;
+
+  // The backend stores these measurements with two decimal places.
+  const rounded = Number(converted.toFixed(2));
+
+  if (
+    !Number.isFinite(converted) ||
+    converted > 999.99 ||
+    rounded < 0.01 ||
+    rounded > 999.99
+  ) {
+    throw new Error(`${label} is outside the supported storage range.`);
+  }
+
+  return rounded;
+}
+
+function displayWeight(value, unit) {
+  if (value === null || value === undefined || value === "") {
+    return "—";
+  }
+
+  const kilograms = Number(value);
+  if (!Number.isFinite(kilograms)) return "—";
+
+  const displayed = unit === "lb" ? kilograms / KG_PER_POUND : kilograms;
+
+  return `${displayed.toLocaleString(undefined, {
+    maximumFractionDigits: 2,
+  })} ${unit}`;
+}
 
 export default function WeightPage() {
   const {
+    user,
+    selectedProfileId,
     selectedProfile,
     weightHistory,
-    addWeight
-  } =
-    useApp();
+    addWeight,
+    weightUnit,
+    lengthUnit,
+  } = useApp();
 
-  const [
-    showForm,
-    setShowForm
-  ] =
-    useState(false);
+  const profileReady =
+    selectedProfileId != null &&
+    selectedProfile &&
+    Number(selectedProfile.profile_id) === Number(selectedProfileId);
 
-  const [
-    form,
-    setForm
-  ] =
-    useState({
-      weight_kg: "",
-      recorded_date: "",
-      waist_cm: "",
-      chest_cm: "",
-      neck_cm: "",
-      hip_cm: ""
-    });
-
-  const [
-    error,
-    setError
-  ] =
-    useState("");
-
-  function update(
-    field,
-    value
-  ) {
-    setForm(
-      (current) => ({
-        ...current,
-        [field]:
-          value
-      })
+  if (!profileReady) {
+    return (
+      <GlassCard>
+        <p role="status">Select a profile and wait for its details to load.</p>
+      </GlassCard>
     );
   }
 
-  function optionalNumber(
-    value
-  ) {
-    return value === ""
-      ? undefined
-      : Number(value);
+  return (
+    <WeightWorkspace
+      key={JSON.stringify([user?.user_id, selectedProfileId])}
+      profile={selectedProfile}
+      records={weightHistory || []}
+      addWeight={addWeight}
+      weightUnit={weightUnit === "lb" ? "lb" : "kg"}
+      lengthUnit={lengthUnit === "in" ? "in" : "cm"}
+    />
+  );
+}
+
+function WeightWorkspace({
+  profile,
+  records,
+  addWeight,
+  weightUnit,
+  lengthUnit,
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState(() => emptyForm(weightUnit, lengthUnit));
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const locked = useRef(false);
+  const lifecycle = useRef(0);
+
+  useLayoutEffect(() => {
+    lifecycle.current += 1;
+
+    return () => {
+      lifecycle.current += 1;
+      locked.current = false;
+    };
+  }, []);
+
+  const isFemale = profile.gender?.trim().toLowerCase() === "female";
+
+  const measurementFields = [
+    ["waist_cm", "Waist"],
+    ["neck_cm", "Neck"],
+    ...(isFemale ? [["hip_cm", "Hip"]] : []),
+  ];
+
+  function update(field, value) {
+    if (locked.current) return;
+
+    setForm((current) => ({ ...current, [field]: value }));
+    setError("");
+    setSuccess("");
   }
 
-  async function submit(
-    event
-  ) {
+  function toggleForm() {
+    if (locked.current) return;
+
+    setError("");
+    setSuccess("");
+
+    if (!showForm) {
+      setForm(emptyForm(weightUnit, lengthUnit));
+    }
+
+    setShowForm((current) => !current);
+  }
+
+  async function submit(event) {
     event.preventDefault();
+    if (locked.current) return;
+
+    const generation = lifecycle.current;
+    const isCurrent = () => lifecycle.current === generation;
+
+    locked.current = true;
+    setSaving(true);
+    setError("");
+    setSuccess("");
 
     try {
-      setError("");
+      const weightFactor = form.weightUnit === "lb" ? KG_PER_POUND : 1;
 
-      await addWeight({
-        weight_kg:
-          Number(
-            form.weight_kg
-          ),
-        recorded_date:
-          form.recorded_date ||
-          undefined,
-        waist_cm:
-          optionalNumber(
-            form.waist_cm
-          ),
-        chest_cm:
-          optionalNumber(
-            form.chest_cm
-          ),
-        neck_cm:
-          optionalNumber(
-            form.neck_cm
-          ),
-        hip_cm:
-          optionalNumber(
-            form.hip_cm
-          )
-      });
+      const lengthFactor = form.lengthUnit === "in" ? CM_PER_INCH : 1;
 
-      setForm({
-        weight_kg: "",
-        recorded_date: "",
-        waist_cm: "",
-        chest_cm: "",
-        neck_cm: "",
-        hip_cm: ""
-      });
+      const payload = {
+        weight_kg: toStoredMeasurement(form.weight_kg, weightFactor, "Weight"),
+        recorded_date: form.recorded_date,
+        waist_cm: toStoredMeasurement(
+          form.waist_cm,
+          lengthFactor,
+          "Waist",
+          true,
+        ),
+        neck_cm: toStoredMeasurement(form.neck_cm, lengthFactor, "Neck", true),
+        hip_cm: isFemale
+          ? toStoredMeasurement(form.hip_cm, lengthFactor, "Hip", true)
+          : null,
+      };
 
+      await addWeight(payload);
+
+      if (!isCurrent()) return;
+
+      setForm(emptyForm(weightUnit, lengthUnit));
       setShowForm(false);
-    } catch (error) {
-      setError(
-        error.message
+      setSuccess(
+        "Weight saved. Your current body measurements were not changed.",
       );
+    } catch (error) {
+      if (isCurrent()) {
+        setError(error.message || "Could not save your weight.");
+      }
+    } finally {
+      if (isCurrent()) {
+        locked.current = false;
+        setSaving(false);
+      }
     }
   }
 
@@ -133,143 +222,106 @@ export default function WeightPage() {
       <PageHeader
         eyebrow="Health / trend"
         title="Weight tracker"
-        subtitle={`Real records for ${selectedProfile?.profile_name || "your selected profile"}.`}
+        subtitle={`Weight history for ${profile.profile_name}. Update current measurements on the Measurements page.`}
         action={
-          <NeonButton
-            onClick={() =>
-              setShowForm(
-                (current) =>
-                  !current
-              )
-            }
-          >
+          <NeonButton type="button" disabled={saving} onClick={toggleForm}>
             <Plus size={16} />
-            Add record
+            {showForm ? "Close form" : "Add record"}
           </NeonButton>
         }
       />
 
+      {success && (
+        <div className="inline-success section-gap" role="status">
+          {success}
+        </div>
+      )}
+
       {showForm && (
-        <GlassCard
-          className="section-gap"
-          glow
-        >
-          <form
-            className="form-grid"
-            onSubmit={
-              submit
-            }
-          >
+        <GlassCard className="section-gap" glow>
+          <form className="form-grid" onSubmit={submit}>
             <label className="field">
-              <span>
-                Weight (kg)
-              </span>
+              <span>Weight ({form.weightUnit})</span>
               <input
                 required
                 type="number"
-                min="1"
-                step="0.1"
-                value={
-                  form.weight_kg
-                }
-                onChange={(
-                  event
-                ) =>
-                  update(
-                    "weight_kg",
-                    event.target
-                      .value
-                  )
-                }
+                min="0.01"
+                step="0.01"
+                value={form.weight_kg}
+                disabled={saving}
+                onChange={(event) => update("weight_kg", event.target.value)}
               />
             </label>
 
             <label className="field">
-              <span>
-                Date
-              </span>
+              <span>Date measured</span>
               <input
+                required
                 type="date"
-                value={
-                  form
-                    .recorded_date
-                }
-                onChange={(
-                  event
-                ) =>
-                  update(
-                    "recorded_date",
-                    event.target
-                      .value
-                  )
+                min="1000-01-01"
+                max="9999-12-31"
+                value={form.recorded_date}
+                disabled={saving}
+                onChange={(event) =>
+                  update("recorded_date", event.target.value)
                 }
               />
             </label>
 
-            {[
-              [
-                "waist_cm",
-                "Waist (cm)"
-              ],
-              [
-                "chest_cm",
-                "Chest (cm)"
-              ],
-              [
-                "neck_cm",
-                "Neck (cm)"
-              ],
-              [
-                "hip_cm",
-                "Hip (cm)"
-              ]
-            ].map(
-              ([
-                field,
-                label
-              ]) => (
-                <label
-                  className="field"
-                  key={
-                    field
-                  }
-                >
-                  <span>
-                    {label}
-                  </span>
-                  <input
-                    type="number"
-                    min="1"
-                    step="0.1"
-                    value={
-                      form[field]
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      update(
-                        field,
-                        event.target
-                          .value
-                      )
-                    }
-                    placeholder="Optional"
-                  />
-                </label>
-              )
+            {(form.weightUnit !== weightUnit ||
+              form.lengthUnit !== lengthUnit) && (
+              <p className="form-grid__full" role="status">
+                This open form still uses {form.weightUnit} and{" "}
+                {form.lengthUnit}. Close and reopen it to use your new
+                preferences; any unsaved entries will be cleared.
+              </p>
             )}
 
+            <div className="form-grid__full">
+              <strong>Optional body-fat estimate</strong>
+              <p>
+                Enter measurements taken on the recorded date.
+                {isFemale
+                  ? " Waist, neck and hip are needed."
+                  : " Waist and neck are needed."}{" "}
+                Missing or invalid measurements produce —.
+              </p>
+              <p>
+                These measurements are used only for this calculation. Their
+                individual values are not saved in weight history, and they do
+                not update your current measurements.
+              </p>
+              <p>
+                BMI and body-fat estimates use your profile’s current height.
+              </p>
+            </div>
+
+            {measurementFields.map(([field, label]) => (
+              <label className="field" key={field}>
+                <span>
+                  {label} ({form.lengthUnit})
+                </span>
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={form[field]}
+                  disabled={saving}
+                  onChange={(event) => update(field, event.target.value)}
+                  placeholder="Optional"
+                />
+              </label>
+            ))}
+
             {error && (
-              <div className="inline-error form-grid__full">
+              <div className="inline-error form-grid__full" role="alert">
                 {error}
               </div>
             )}
 
             <div className="form-grid__full">
-              <NeonButton
-                type="submit"
-              >
-                Save weight
+              <NeonButton type="submit" disabled={saving}>
+                {saving ? "Saving..." : "Save weight"}
               </NeonButton>
             </div>
           </form>
@@ -277,84 +329,43 @@ export default function WeightPage() {
       )}
 
       <div className="stack-grid">
-        <WeightTrend
-          records={
-            weightHistory
-          }
-        />
+        <WeightTrend records={records} />
 
         <GlassCard>
           <div className="card-heading">
             <div>
-              <span className="eyebrow-small">
-                Database
-              </span>
-              <h3>
-                Weight history
-              </h3>
+              <span className="eyebrow-small">History</span>
+              <h3>Weight records</h3>
             </div>
-
-            <Scale
-              size={18}
-            />
+            <Scale size={18} />
           </div>
 
-          {weightHistory.length ===
-          0 ? (
-            <div className="empty-state">
-              No records yet.
-            </div>
+          {records.length === 0 ? (
+            <div className="empty-state">No records yet.</div>
           ) : (
             <div className="data-table">
               <div className="data-table__head data-table__head--four">
                 <span>Date</span>
-                <span>
-                  Weight
-                </span>
+                <span>Weight ({weightUnit})</span>
                 <span>BMI</span>
-                <span>
-                  Body fat
-                </span>
+                <span>Body fat</span>
               </div>
 
-              {[...weightHistory]
-                .reverse()
-                .map(
-                  (record) => (
-                    <div
-                      className="data-table__row data-table__row--four"
-                      key={
-                        record.weight_id
-                      }
-                    >
-                      <span>
-                        {String(
-                          record.recorded_date
-                        ).slice(
-                          0,
-                          10
-                        )}
-                      </span>
-                      <strong>
-                        {
-                          record.weight_kg
-                        }{" "}
-                        kg
-                      </strong>
-                      <span>
-                        {record.bmi ??
-                          "—"}
-                      </span>
-                      <span>
-                        {record
-                          .body_fat_percentage !=
-                        null
-                          ? `${record.body_fat_percentage}%`
-                          : "—"}
-                      </span>
-                    </div>
-                  )
-                )}
+              {[...records].reverse().map((record) => (
+                <div
+                  className="data-table__row data-table__row--four"
+                  key={record.weight_id}
+                >
+                  <span>{String(record.recorded_date).slice(0, 10)}</span>
+                  <strong>{displayWeight(record.weight_kg, weightUnit)}</strong>
+                  <span>{record.bmi ?? "—"}</span>
+                  <span>
+                    {record.body_fat_percentage != null
+                      ? `${record.body_fat_percentage}%`
+                      : "—"}
+                  </span>
+                </div>
+              ))}
             </div>
           )}
         </GlassCard>

@@ -1,530 +1,423 @@
 import {
-  AlertCircle,
-  Check,
-  ChevronRight,
-  LoaderCircle,
-  PlusCircle,
-  Search,
-  Sparkles
+  AlertCircle, Check, ChevronRight, LoaderCircle,
+  PlusCircle, Search, Sparkles
 } from "lucide-react";
-
-import {
-  useMemo,
-  useState
-} from "react";
-
-import GlassCard
-  from "../components/ui/GlassCard";
-
-import NeonButton
-  from "../components/ui/NeonButton";
-
-import PageHeader
-  from "../components/ui/PageHeader";
-
-import {
-  useApp
-} from "../context/AppContext";
-
-import {
-  api
-} from "../services/api";
+import { useLayoutEffect, useRef, useState } from "react";
+import GlassCard from "../components/ui/GlassCard";
+import NeonButton from "../components/ui/NeonButton";
+import PageHeader from "../components/ui/PageHeader";
+import { useApp } from "../context/AppContext";
+import { api } from "../services/api";
 
 const LABELS = {
-  calories:
-    "Calories",
-  protein_g:
-    "Protein",
-  carbs_g:
-    "Carbs",
-  fat_g:
-    "Fat",
-  saturated_fat_g:
-    "Saturated fat",
-  fiber_g:
-    "Fibre",
-  sugar_g:
-    "Sugar",
-  potassium_mg:
-    "Potassium",
-  sodium_mg:
-    "Sodium",
-  calcium_mg:
-    "Calcium",
-  iron_mg:
-    "Iron",
-  magnesium_mg:
-    "Magnesium",
-  phosphorus_mg:
-    "Phosphorus",
-  zinc_mg:
-    "Zinc",
-  vitamin_c_mg:
-    "Vitamin C"
+  calories: "Calories",
+  protein_g: "Protein",
+  carbs_g: "Carbs",
+  fat_g: "Fat",
+  saturated_fat_g: "Saturated fat",
+  fiber_g: "Fibre",
+  sugar_g: "Sugar",
+  potassium_mg: "Potassium",
+  sodium_mg: "Sodium",
+  calcium_mg: "Calcium",
+  iron_mg: "Iron",
+  magnesium_mg: "Magnesium",
+  phosphorus_mg: "Phosphorus",
+  zinc_mg: "Zinc",
+  vitamin_c_mg: "Vitamin C"
 };
 
-const UNITS = {
-  calories:
-    "kcal",
-  protein_g: "g",
-  carbs_g: "g",
-  fat_g: "g",
-  saturated_fat_g:
-    "g",
-  fiber_g: "g",
-  sugar_g: "g",
-  potassium_mg:
-    "mg",
-  sodium_mg:
-    "mg",
-  calcium_mg:
-    "mg",
-  iron_mg:
-    "mg",
-  magnesium_mg:
-    "mg",
-  phosphorus_mg:
-    "mg",
-  zinc_mg:
-    "mg",
-  vitamin_c_mg:
-    "mg"
-};
+const BASE_UNITS = [
+  { value: "g", label: "grams" },
+  { value: "kg", label: "kilograms" },
+  { value: "oz", label: "ounces" },
+  { value: "lb", label: "pounds" }
+];
+
+function inputKey(fdcId, quantity, unit) {
+  return JSON.stringify([String(fdcId), String(quantity), unit]);
+}
+
+function nutrientUnit(key) {
+  if (key === "calories") return "kcal";
+  return key.endsWith("_mg") ? "mg" : "g";
+}
 
 export default function NutritionPage() {
   const {
+    user,
+    selectedProfileId,
     selectedProfile,
     nutritionDate,
     saveNutritionLog
-  } =
-    useApp();
+  } = useApp();
 
-  const [
-    query,
-    setQuery
-  ] =
-    useState("");
+  const profileReady =
+    selectedProfileId != null &&
+    selectedProfile &&
+    Number(selectedProfile.profile_id) === Number(selectedProfileId);
 
-  const [
-    quantity,
-    setQuantity
-  ] =
-    useState("100");
-
-  const [
-    unit,
-    setUnit
-  ] =
-    useState("g");
-
-  const [
-    mealType,
-    setMealType
-  ] =
-    useState(
-      "breakfast"
+  if (!profileReady) {
+    return (
+      <GlassCard>
+        <p role="status">Select a profile and wait for its details to load.</p>
+      </GlassCard>
     );
+  }
 
-  const [
-    results,
-    setResults
-  ] =
-    useState([]);
+  // Changing the account, profile or date creates a fresh workspace.
+  return (
+    <NutritionWorkspace
+      key={JSON.stringify([
+        user?.user_id,
+        selectedProfileId,
+        nutritionDate
+      ])}
+      profile={selectedProfile}
+      nutritionDate={nutritionDate}
+      saveNutritionLog={saveNutritionLog}
+    />
+  );
+}
 
-  const [
-    selected,
-    setSelected
-  ] =
-    useState(null);
+function NutritionWorkspace({ profile, nutritionDate, saveNutritionLog }) {
+  const [query, setQuery] = useState("");
+  const [quantity, setQuantity] = useState("100");
+  const [unit, setUnit] = useState("g");
+  const [mealType, setMealType] = useState("breakfast");
+  const [results, setResults] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [details, setDetails] = useState(null);
+  const [calculation, setCalculation] = useState(null);
+  const [busy, setBusy] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-  const [
-    details,
-    setDetails
-  ] =
-    useState(null);
+  const requestVersion = useRef(0);
+  const pending = useRef(false);
+  const saveLocked = useRef(false);
 
-  const [
-    calculation,
-    setCalculation
-  ] =
-    useState(null);
+  useLayoutEffect(() => {
+    requestVersion.current += 1;
 
-  const [
-    busy,
-    setBusy
-  ] =
-    useState(false);
+    return () => {
+      requestVersion.current += 1;
+      pending.current = false;
+      saveLocked.current = false;
+    };
+  }, []);
 
-  const [
-    saving,
-    setSaving
-  ] =
-    useState(false);
+  const availableUnits = [
+    ...BASE_UNITS,
+    ...(details?.portions || []).map((portion) => ({
+      value: portion.key,
+      label: portion.label
+    }))
+  ];
 
-  const [
-    error,
-    setError
-  ] =
-    useState("");
+  const currentKey = selected
+    ? inputKey(selected.fdcId, quantity, unit)
+    : null;
 
-  const [
-    success,
-    setSuccess
-  ] =
-    useState("");
+  const calculationIsCurrent =
+    calculation != null &&
+    calculation.key === currentKey &&
+    calculation.version === requestVersion.current;
 
-  const availableUnits =
-    useMemo(() => {
-      const base = [
-        {
-          value: "g",
-          label: "grams"
-        },
-        {
-          value: "kg",
-          label:
-            "kilograms"
-        },
-        {
-          value: "oz",
-          label: "ounces"
-        },
-        {
-          value: "lb",
-          label: "pounds"
-        }
-      ];
+  const currentCalculation = calculationIsCurrent
+    ? calculation.data
+    : null;
 
-      if (
-        !details?.portions
-      ) {
-        return base;
-      }
+  const canSave = Boolean(currentCalculation) && !busy && !saving;
 
-      return [
-        ...base,
-        ...details.portions.map(
-          (portion) => ({
-            value:
-              portion.key,
-            label:
-              portion.label
-          })
-        )
-      ];
-    }, [details]);
+  // Clear the result and invalidate any outstanding calculation.
+  function invalidateCalculation() {
+    requestVersion.current += 1;
+    pending.current = false;
+    setCalculation(null);
+    setBusy("");
+    setError("");
+    setSuccess("");
+  }
 
-  async function search(
-    event
-  ) {
+  function changeQuery(value) {
+    if (saveLocked.current) return;
+
+    invalidateCalculation();
+    setQuery(value);
+    setResults([]);
+    setSelected(null);
+    setDetails(null);
+    setUnit("g");
+  }
+
+  function changeQuantity(value) {
+    if (saveLocked.current) return;
+
+    invalidateCalculation();
+    setQuantity(value);
+  }
+
+  function changeUnit(value) {
+    if (saveLocked.current) return;
+
+    invalidateCalculation();
+    setUnit(value);
+  }
+
+  function startRequest(kind) {
+    const version = ++requestVersion.current;
+    pending.current = true;
+    setBusy(kind);
+    setCalculation(null);
+    setError("");
+    setSuccess("");
+    return version;
+  }
+
+  function finishRequest(version) {
+    if (requestVersion.current !== version) return;
+
+    pending.current = false;
+    setBusy("");
+  }
+
+  async function search(event) {
     event.preventDefault();
+    if (pending.current || saveLocked.current || !query.trim()) return;
 
-    if (
-      !query.trim()
-    ) {
-      return;
-    }
+    const searchText = query.trim();
+    const version = startRequest("search");
+
+    setResults([]);
+    setSelected(null);
+    setDetails(null);
+    setUnit("g");
 
     try {
-      setBusy(true);
-      setError("");
-      setSuccess("");
-      setCalculation(
-        null
-      );
+      const data = await api.searchNutrition(searchText);
+      if (requestVersion.current !== version) return;
 
-      const data =
-        await api
-          .searchNutrition(
-            query.trim()
-          );
-
-      setResults(
-        data.foods || []
-      );
-
-      setSelected(null);
-      setDetails(null);
+      setResults(data.foods || []);
     } catch (error) {
-      setError(
-        error.message
-      );
+      if (requestVersion.current === version) {
+        setError(error.message || "Could not search for foods.");
+      }
     } finally {
-      setBusy(false);
+      finishRequest(version);
     }
   }
 
-  async function choose(
-    food
-  ) {
-    try {
-      setBusy(true);
-      setError("");
-      setSuccess("");
-      setSelected(food);
-      setCalculation(
-        null
-      );
+  async function choose(food) {
+    if (pending.current || saveLocked.current) return;
 
-      const data =
-        await api
-          .getFoodDetails(
-            food.fdcId
-          );
+    const version = startRequest("details");
+    setSelected(food);
+    setDetails(null);
+    setUnit("g");
+
+    try {
+      const data = await api.getFoodDetails(food.fdcId);
+      if (requestVersion.current !== version) return;
 
       setDetails(data);
-      setUnit("g");
     } catch (error) {
-      setError(
-        error.message
-      );
+      if (requestVersion.current === version) {
+        setError(error.message || "Could not load this food.");
+      }
     } finally {
-      setBusy(false);
+      finishRequest(version);
     }
   }
 
   async function calculate() {
-    if (!selected) {
-      setError(
-        "Select a USDA food first."
-      );
+    if (pending.current || saveLocked.current) return;
+
+    invalidateCalculation();
+
+    if (!selected || !details) {
+      setError("Select a food and wait for its details to load.");
       return;
     }
 
+    const numericQuantity = Number(quantity);
+
+    if (!Number.isFinite(numericQuantity) || numericQuantity <= 0) {
+      setError("Enter a quantity greater than zero.");
+      return;
+    }
+
+    // Capture the inputs before starting the request.
+    const snapshot = {
+      fdcId: selected.fdcId,
+      quantity: numericQuantity,
+      unit
+    };
+    const key = inputKey(selected.fdcId, quantity, unit);
+    const version = startRequest("calculate");
+
     try {
-      setBusy(true);
-      setError("");
-      setSuccess("");
+      const data = await api.calculateNutrition(snapshot);
+      if (requestVersion.current !== version) return;
 
-      const data =
-        await api
-          .calculateNutrition({
-            fdcId:
-              selected.fdcId,
-            quantity:
-              Number(
-                quantity
-              ),
-            unit
-          });
+      // Only accept a response for the requested inputs.
+      if (
+        !data?.food ||
+        !data?.input ||
+        !data?.nutrition ||
+        String(data.food.fdcId) !== String(snapshot.fdcId) ||
+        Number(data.input.quantity) !== snapshot.quantity ||
+        data.input.unit !== snapshot.unit
+      ) {
+        throw new Error(
+          "The calculation did not match your inputs. Please try again."
+        );
+      }
 
-      setCalculation(
-        data
-      );
+      setCalculation({ data, key, version, snapshot });
     } catch (error) {
-      setError(
-        error.message
-      );
+      if (requestVersion.current === version) {
+        setError(error.message || "Could not calculate nutrition.");
+      }
     } finally {
-      setBusy(false);
+      finishRequest(version);
     }
   }
 
   async function addToDay() {
+    if (saveLocked.current || pending.current) return;
+
     if (
-      !calculation
+      !calculation ||
+      calculation.key !== currentKey ||
+      calculation.version !== requestVersion.current
     ) {
-      setError(
-        "Calculate the food first."
-      );
+      setError("Calculate the current food quantity before saving.");
       return;
     }
 
+    const { data, snapshot, version } = calculation;
+    const targetMeal = mealType;
+    const targetDate = nutritionDate;
+
+    saveLocked.current = true;
+    setSaving(true);
+    setError("");
+    setSuccess("");
+
     try {
-      setSaving(true);
-      setError("");
-      setSuccess("");
-
       await saveNutritionLog({
-        fdcId:
-          calculation.food
-            .fdcId,
-
-        food_name:
-          calculation.food
-            .description,
-
-        quantity:
-          calculation.input
-            .quantity,
-
-        unit:
-          calculation.input
-            .unit,
-
-        weight_grams:
-          calculation.input
-            .weightGrams,
-
-        meal_type:
-          mealType,
-
-        logged_date:
-          nutritionDate,
-
-        nutrition:
-          calculation
-            .nutrition
+        fdcId: snapshot.fdcId,
+        food_name: data.food.description,
+        quantity: snapshot.quantity,
+        unit: snapshot.unit,
+        weight_grams: data.input.weightGrams,
+        meal_type: targetMeal,
+        logged_date: targetDate,
+        nutrition: data.nutrition
       });
 
-      setSuccess(
-        `${calculation.food.description} added to ${mealType} for ${nutritionDate}.`
-      );
+      if (requestVersion.current === version) {
+        setSuccess(
+          `${data.food.description} added to ${targetMeal} for ${targetDate}.`
+        );
+      }
     } catch (error) {
-      setError(
-        error.message
-      );
+      if (requestVersion.current === version) {
+        setError(error.message || "Could not save this food.");
+      }
     } finally {
-      setSaving(false);
+      if (requestVersion.current === version) {
+        saveLocked.current = false;
+        setSaving(false);
+      }
     }
   }
 
+  // A per-100 g preview is separate from a calculated, saveable result.
   const nutrition =
-    calculation?.nutrition ||
-    details
-      ?.nutrientsPer100g ||
-    null;
+    currentCalculation?.nutrition || details?.nutrientsPer100g || null;
+
+  const quantityDisabled =
+    saving || busy === "search" || busy === "details";
 
   return (
     <>
       <PageHeader
         eyebrow="Nutrition / USDA"
         title="Nutrition calculator"
-        subtitle={`Search USDA, calculate the exact quantity, then add it to ${selectedProfile?.profile_name || "your profile"}'s daily log.`}
+        subtitle={`Search USDA, calculate the exact quantity, then add it to ${profile.profile_name}'s daily log.`}
       />
 
       <div className="nutrition-layout">
-        <GlassCard
-          className="nutrition-search-card"
-          glow
-        >
+        <GlassCard className="nutrition-search-card" glow>
           <div className="card-heading">
             <div>
-              <span className="eyebrow-small">
-                Step 1
-              </span>
-              <h3>
-                Find food
-              </h3>
+              <span className="eyebrow-small">Step 1</span>
+              <h3>Find food</h3>
             </div>
           </div>
 
-          <form
-            className="nutrition-search"
-            onSubmit={
-              search
-            }
-          >
+          <form className="nutrition-search" onSubmit={search}>
             <div className="field-input">
-              <Search
-                size={16}
-              />
+              <Search size={16} />
               <input
-                value={
-                  query
-                }
-                onChange={(
-                  event
-                ) =>
-                  setQuery(
-                    event.target
-                      .value
-                  )
-                }
+                aria-label="Search foods"
+                value={query}
+                disabled={saving}
+                onChange={(event) => changeQuery(event.target.value)}
                 placeholder="Chicken breast, banana, rice..."
               />
             </div>
 
             <NeonButton
               type="submit"
-              disabled={
-                busy
-              }
+              disabled={Boolean(busy) || saving || !query.trim()}
             >
-              {busy ? (
-                <LoaderCircle
-                  className="spin"
-                  size={
-                    16
-                  }
-                />
+              {busy === "search" ? (
+                <LoaderCircle className="spin" size={16} />
               ) : (
-                <Search
-                  size={
-                    16
-                  }
-                />
+                <Search size={16} />
               )}
               Search
             </NeonButton>
           </form>
 
           <div className="food-results">
-            {results.map(
-              (food) => (
-                <button
-                  key={
-                    food.fdcId
-                  }
-                  className={`food-result ${
-                    selected
-                      ?.fdcId ===
-                    food.fdcId
-                      ? "is-selected"
-                      : ""
-                  }`}
-                  onClick={() =>
-                    choose(
-                      food
-                    )
-                  }
-                >
-                  <div className="food-result__icon">
-                    {selected
-                      ?.fdcId ===
-                    food.fdcId ? (
-                      <Check
-                        size={
-                          15
-                        }
-                      />
-                    ) : (
-                      <Sparkles
-                        size={
-                          15
-                        }
-                      />
-                    )}
-                  </div>
+            {results.map((food) => (
+              <button
+                type="button"
+                key={food.fdcId}
+                disabled={Boolean(busy) || saving}
+                className={`food-result ${
+                  selected?.fdcId === food.fdcId ? "is-selected" : ""
+                }`}
+                onClick={() => choose(food)}
+              >
+                <div className="food-result__icon">
+                  {selected?.fdcId === food.fdcId ? (
+                    <Check size={15} />
+                  ) : (
+                    <Sparkles size={15} />
+                  )}
+                </div>
+                <div>
+                  <strong>{food.description}</strong>
+                  <span>
+                    {food.dataType}
+                    {food.brandName ? ` · ${food.brandName}` : ""}
+                  </span>
+                </div>
+                <ChevronRight size={16} />
+              </button>
+            ))}
 
-                  <div>
-                    <strong>
-                      {
-                        food.description
-                      }
-                    </strong>
-                    <span>
-                      {
-                        food.dataType
-                      }
-                      {food.brandName
-                        ? ` · ${food.brandName}`
-                        : ""}
-                    </span>
-                  </div>
-
-                  <ChevronRight
-                    size={16}
-                  />
-                </button>
-              )
-            )}
-
-            {results.length ===
-              0 && (
+            {results.length === 0 && (
               <div className="empty-state">
-                Search results
-                will appear here.
+                {busy === "search"
+                  ? "Searching..."
+                  : "Search results will appear here."}
               </div>
             )}
           </div>
@@ -534,227 +427,136 @@ export default function NutritionPage() {
           <GlassCard>
             <div className="card-heading">
               <div>
-                <span className="eyebrow-small">
-                  Step 2
-                </span>
-                <h3>
-                  Quantity
-                </h3>
+                <span className="eyebrow-small">Step 2</span>
+                <h3>Quantity</h3>
               </div>
             </div>
 
             <div className="quantity-grid">
               <label className="field">
-                <span>
-                  Quantity
-                </span>
+                <span>Quantity</span>
                 <input
                   type="number"
                   min="0.01"
                   step="0.01"
-                  value={
-                    quantity
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setQuantity(
-                      event.target
-                        .value
-                    )
-                  }
+                  value={quantity}
+                  disabled={quantityDisabled}
+                  onChange={(event) => changeQuantity(event.target.value)}
                 />
               </label>
 
               <label className="field">
-                <span>
-                  Unit
-                </span>
+                <span>Unit</span>
                 <select
-                  value={
-                    unit
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setUnit(
-                      event.target
-                        .value
-                    )
-                  }
+                  value={unit}
+                  disabled={quantityDisabled}
+                  onChange={(event) => changeUnit(event.target.value)}
                 >
-                  {availableUnits.map(
-                    (
-                      option
-                    ) => (
-                      <option
-                        key={
-                          option.value
-                        }
-                        value={
-                          option.value
-                        }
-                      >
-                        {
-                          option.label
-                        }
-                      </option>
-                    )
-                  )}
+                  {availableUnits.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </label>
             </div>
 
             <NeonButton
+              type="button"
               className="full-width"
-              onClick={
-                calculate
-              }
-              disabled={
-                busy ||
-                !selected
-              }
+              onClick={calculate}
+              disabled={Boolean(busy) || saving || !selected || !details}
             >
-              Calculate
+              {busy === "calculate" ? "Calculating..." : "Calculate"}
             </NeonButton>
           </GlassCard>
 
-          <GlassCard
-            className="nutrition-output-card"
-            glow
-          >
+          <GlassCard className="nutrition-output-card" glow>
             <div className="card-heading">
               <div>
-                <span className="eyebrow-small">
-                  Output
-                </span>
-                <h3>
-                  Nutrients
-                </h3>
+                <span className="eyebrow-small">Output</span>
+                <h3>Nutrients</h3>
               </div>
-
               <span className="metric-chip">
-                {calculation
-                  ? `${calculation.input?.weightGrams ?? "—"} g`
+                {currentCalculation
+                  ? `${currentCalculation.input.weightGrams} g`
                   : details
-                  ? "per 100 g"
-                  : "waiting"}
+                    ? "per 100 g preview"
+                    : "waiting"}
               </span>
             </div>
 
             {!nutrition ? (
               <div className="empty-state">
-                Select a food to
-                view nutrients.
+                Select a food to view nutrients.
               </div>
             ) : (
               <div className="nutrient-grid">
-                {Object.entries(
-                  LABELS
-                ).map(
-                  ([
-                    key,
-                    label
-                  ]) => (
-                    <div
-                      className={`nutrient-tile ${
-                        key ===
-                        "calories"
-                          ? "nutrient-tile--hero"
-                          : ""
-                      }`}
-                      key={
-                        key
-                      }
-                    >
-                      <span>
-                        {label}
-                      </span>
-                      <strong>
-                        {nutrition[
-                          key
-                        ] ??
-                          "—"}
-                        <small>
-                          {
-                            UNITS[
-                              key
-                            ]
-                          }
-                        </small>
-                      </strong>
-                    </div>
-                  )
-                )}
+                {Object.entries(LABELS).map(([key, label]) => (
+                  <div
+                    key={key}
+                    className={`nutrient-tile ${
+                      key === "calories" ? "nutrient-tile--hero" : ""
+                    }`}
+                  >
+                    <span>{label}</span>
+                    <strong>
+                      {nutrition[key] ?? "—"}
+                      <small>{nutrientUnit(key)}</small>
+                    </strong>
+                  </div>
+                ))}
               </div>
             )}
 
-            {calculation && (
+            {details && !currentCalculation && (
+              <p role="status">
+                {busy === "calculate"
+                  ? "Calculating your quantity..."
+                  : "Preview only. Calculate your current quantity before saving."}
+              </p>
+            )}
+
+            {currentCalculation && (
               <div className="nutrition-save-panel">
                 <label className="field">
-                  <span>
-                    Add to meal
-                  </span>
+                  <span>Add to meal</span>
                   <select
-                    value={
-                      mealType
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      setMealType(
-                        event.target
-                          .value
-                      )
-                    }
+                    value={mealType}
+                    disabled={saving}
+                    onChange={(event) => {
+                      setMealType(event.target.value);
+                      setSuccess("");
+                    }}
                   >
-                    <option value="breakfast">
-                      Breakfast
-                    </option>
-                    <option value="lunch">
-                      Lunch
-                    </option>
-                    <option value="dinner">
-                      Dinner
-                    </option>
-                    <option value="snack">
-                      Snack
-                    </option>
-                    <option value="other">
-                      Other
-                    </option>
+                    <option value="breakfast">Breakfast</option>
+                    <option value="lunch">Lunch</option>
+                    <option value="dinner">Dinner</option>
+                    <option value="snack">Snack</option>
+                    <option value="other">Other</option>
                   </select>
                 </label>
 
                 <NeonButton
-                  onClick={
-                    addToDay
-                  }
-                  disabled={
-                    saving
-                  }
+                  type="button"
+                  onClick={addToDay}
+                  disabled={!canSave}
                 >
-                  <PlusCircle
-                    size={16}
-                  />
-                  {saving
-                    ? "Adding..."
-                    : `Add to ${nutritionDate}`}
+                  <PlusCircle size={16} />
+                  {saving ? "Adding..." : `Add to ${nutritionDate}`}
                 </NeonButton>
               </div>
             )}
 
             {error && (
-              <div className="inline-error section-gap-top">
-                <AlertCircle
-                  size={16}
-                />
+              <div className="inline-error section-gap-top" role="alert">
+                <AlertCircle size={16} />
                 {error}
               </div>
             )}
 
             {success && (
-              <div className="inline-success section-gap-top">
+              <div className="inline-success section-gap-top" role="status">
                 {success}
               </div>
             )}

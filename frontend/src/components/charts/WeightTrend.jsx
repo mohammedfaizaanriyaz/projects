@@ -1,3 +1,4 @@
+import { useId } from "react";
 import {
   Area,
   AreaChart,
@@ -5,30 +6,27 @@ import {
   ResponsiveContainer,
   Tooltip,
   XAxis,
-  YAxis
+  YAxis,
 } from "recharts";
 
-import GlassCard
-  from "../ui/GlassCard";
+import GlassCard from "../ui/GlassCard";
+import { useApp } from "../../context/AppContext";
+
+const KG_PER_POUND = 0.45359237;
 
 function formatDate(value) {
-  if (!value) {
-    return "";
-  }
+  if (!value) return "";
 
   const text = String(value);
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
 
-  if (!match) {
-    return text;
-  }
+  if (!match) return text;
 
   const year = Number(match[1]);
   const month = Number(match[2]);
   const day = Number(match[3]);
 
   const date = new Date(0);
-
   date.setUTCFullYear(year, month - 1, day);
   date.setUTCHours(0, 0, 0, 0);
 
@@ -37,97 +35,79 @@ function formatDate(value) {
     date.getUTCMonth() === month - 1 &&
     date.getUTCDate() === day;
 
-  if (!validDate) {
-    return text;
-  }
+  if (!validDate) return text;
 
   return date.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
-    timeZone: "UTC"
+    timeZone: "UTC",
   });
 }
 
-export default function WeightTrend({
-  records = []
-}) {
-  const data =
-    records.map(
-      (record) => ({
-        date:
-          formatDate(
-            record.recorded_date
-          ),
-        value:
-          Number(
-            record.weight_kg
-          )
-      })
-    );
+function formatWeight(value) {
+  return Number(value).toLocaleString(undefined, {
+    maximumFractionDigits: 2,
+  });
+}
+
+export default function WeightTrend({ records = [] }) {
+  const { weightUnit } = useApp();
+  const unit = weightUnit === "lb" ? "lb" : "kg";
+  const gradientId = `weight-fill-${useId().replace(/:/g, "")}`;
+
+  const data = records.flatMap((record) => {
+    const rawWeight = record.weight_kg;
+
+    if (rawWeight === null || rawWeight === undefined || rawWeight === "") {
+      return [];
+    }
+
+    const kilograms = Number(rawWeight);
+
+    if (!Number.isFinite(kilograms) || kilograms <= 0) {
+      return [];
+    }
+
+    return [
+      {
+        date: formatDate(record.recorded_date),
+        fullDate: String(record.recorded_date),
+        value: unit === "lb" ? kilograms / KG_PER_POUND : kilograms,
+      },
+    ];
+  });
 
   return (
-    <GlassCard
-      className="chart-card"
-      glow
-    >
+    <GlassCard className="chart-card" glow>
       <div className="card-heading">
         <div>
-          <span className="eyebrow-small">
-            Real history
-          </span>
-          <h3>
-            Weight trend
-          </h3>
+          <span className="eyebrow-small">Real history</span>
+          <h3>Weight trend ({unit})</h3>
         </div>
 
-        <span className="metric-chip">
-          {data.length} records
-        </span>
+        <span className="metric-chip">{data.length} records</span>
       </div>
 
-      {data.length ===
-      0 ? (
+      {data.length === 0 ? (
         <div className="empty-state">
-          Add your first weight
-          record to see a trend.
+          Add your first weight record to see a trend.
         </div>
       ) : (
         <div className="chart-wrap">
-          <ResponsiveContainer
-            width="100%"
-            height="100%"
-          >
+          <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={data}
               margin={{
                 top: 10,
                 right: 12,
-                left: -20,
-                bottom: 0
+                left: 0,
+                bottom: 0,
               }}
             >
               <defs>
-                <linearGradient
-                  id="weightFill"
-                  x1="0"
-                  y1="0"
-                  x2="0"
-                  y2="1"
-                >
-                  <stop
-                    offset="0%"
-                    stopColor="#8b5cf6"
-                    stopOpacity={
-                      0.55
-                    }
-                  />
-                  <stop
-                    offset="100%"
-                    stopColor="#22d3ee"
-                    stopOpacity={
-                      0.03
-                    }
-                  />
+                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.55} />
+                  <stop offset="100%" stopColor="#22d3ee" stopOpacity={0.03} />
                 </linearGradient>
               </defs>
 
@@ -139,45 +119,35 @@ export default function WeightTrend({
 
               <XAxis
                 dataKey="date"
-                tick={{
-                  fill:
-                    "#7f8aa7",
-                  fontSize:
-                    11
-                }}
+                tick={{ fill: "#7f8aa7", fontSize: 11 }}
                 tickLine={false}
                 axisLine={false}
               />
 
               <YAxis
                 domain={[
-                  "dataMin - 1",
-                  "dataMax + 1"
+                  (minimum) => Math.max(0, minimum - 1),
+                  (maximum) => maximum + 1,
                 ]}
-                tick={{
-                  fill:
-                    "#7f8aa7",
-                  fontSize:
-                    11
-                }}
+                tick={{ fill: "#7f8aa7", fontSize: 11 }}
+                tickFormatter={formatWeight}
                 tickLine={false}
                 axisLine={false}
+                width={60}
               />
 
               <Tooltip
                 contentStyle={{
-                  background:
-                    "#0b1020",
-                  border:
-                    "1px solid rgba(139,92,246,.35)",
-                  borderRadius:
-                    12
+                  background: "#0b1020",
+                  border: "1px solid rgba(139,92,246,.35)",
+                  borderRadius: 12,
                 }}
-                formatter={(
-                  value
-                ) => [
-                  `${value} kg`,
-                  "Weight"
+                labelFormatter={(label, payload) =>
+                  payload?.[0]?.payload?.fullDate || label
+                }
+                formatter={(value) => [
+                  `${formatWeight(value)} ${unit}`,
+                  "Weight",
                 ]}
               />
 
@@ -186,15 +156,12 @@ export default function WeightTrend({
                 dataKey="value"
                 stroke="#9b7cff"
                 strokeWidth={3}
-                fill="url(#weightFill)"
+                fill={`url(#${gradientId})`}
                 dot={{
                   r: 3,
-                  fill:
-                    "#0b1020",
-                  stroke:
-                    "#9b7cff",
-                  strokeWidth:
-                    2
+                  fill: "#0b1020",
+                  stroke: "#9b7cff",
+                  strokeWidth: 2,
                 }}
               />
             </AreaChart>

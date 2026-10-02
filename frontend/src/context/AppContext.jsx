@@ -5,25 +5,27 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
-  useState
+  useState,
 } from "react";
 
 import { api } from "../services/api";
 
 const AppContext = createContext(null);
 
+function readUnitPreference(key, allowed, fallback) {
+  try {
+    const saved = localStorage.getItem(key);
+    return allowed.includes(saved) ? saved : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 function getLocalDateKey() {
   const now = new Date();
-
   const year = now.getFullYear();
-
-  const month = String(
-    now.getMonth() + 1
-  ).padStart(2, "0");
-
-  const day = String(
-    now.getDate()
-  ).padStart(2, "0");
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
 }
@@ -38,63 +40,74 @@ function emptyNutritionTotals() {
       fat_g: 0,
       fiber_g: 0,
       potassium_mg: 0,
-      sodium_mg: 0
+      sodium_mg: 0,
     },
-    meals: {}
+    meals: {},
   };
 }
 
 export function AppProvider({ children }) {
+  // Shared unit preferences.
+  const [weightUnit, setWeightUnit] = useState(() =>
+    readUnitPreference("vyra_weight_unit", ["kg", "lb"], "kg"),
+  );
+
+  const [lengthUnit, setLengthUnit] = useState(() =>
+    readUnitPreference("vyra_length_unit", ["cm", "in"], "cm"),
+  );
+
+  const [unitPreferenceError, setUnitPreferenceError] = useState("");
+
   const [sessionLoading, setSessionLoading] = useState(true);
   const [user, setUser] = useState(null);
-
   const [profiles, setProfiles] = useState([]);
   const [profilesLoading, setProfilesLoading] = useState(true);
-
-  const [selectedProfileId, setSelectedProfileId] =
-    useState(null);
-
-  const [selectedProfile, setSelectedProfile] =
-    useState(null);
-
+  const [selectedProfileId, setSelectedProfileId] = useState(null);
+  const [selectedProfile, setSelectedProfile] = useState(null);
   const [weightHistory, setWeightHistory] = useState([]);
-
-  const [nutritionDate, setNutritionDate] =
-    useState(getLocalDateKey);
-
+  const [nutritionDate, setNutritionDate] = useState(getLocalDateKey);
   const [nutritionLogs, setNutritionLogs] = useState([]);
-
-  const [nutritionTotals, setNutritionTotals] =
-    useState(emptyNutritionTotals);
-
+  const [nutritionTotals, setNutritionTotals] = useState(emptyNutritionTotals);
   const [globalError, setGlobalError] = useState("");
 
   const activeAccount = useRef({
     userId: null,
-    generation: 0
+    generation: 0,
   });
 
   const activeSelection = useRef({
     userId: null,
     profileId: null,
     date: null,
-    generation: 0
+    generation: 0,
   });
 
   const latestRequest = useRef({
     profiles: 0,
     profile: 0,
     weight: 0,
-    nutrition: 0
+    nutrition: 0,
   });
 
   const sessionRequest = useRef(0);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("vyra_weight_unit", weightUnit);
+      localStorage.setItem("vyra_length_unit", lengthUnit);
+      setUnitPreferenceError("");
+    } catch {
+      setUnitPreferenceError(
+        "Your unit choices work for this session, but could not be saved on this device.",
+      );
+    }
+  }, [weightUnit, lengthUnit]);
 
   // Invalidate requests belonging to an earlier account.
   useLayoutEffect(() => {
     activeAccount.current = {
       userId: user?.user_id ?? null,
-      generation: activeAccount.current.generation + 1
+      generation: activeAccount.current.generation + 1,
     };
 
     setProfiles([]);
@@ -104,7 +117,7 @@ export function AppProvider({ children }) {
     return () => {
       activeAccount.current = {
         ...activeAccount.current,
-        generation: activeAccount.current.generation + 1
+        generation: activeAccount.current.generation + 1,
       };
     };
   }, [user?.user_id]);
@@ -115,43 +128,30 @@ export function AppProvider({ children }) {
       userId: user?.user_id ?? null,
       profileId: selectedProfileId,
       date: nutritionDate,
-      generation: activeSelection.current.generation + 1
+      generation: activeSelection.current.generation + 1,
     };
 
     clearProfileData();
 
     const profileBelongsToAccount = profiles.some(
       (profile) =>
-        Number(profile.profile_id) ===
-          Number(selectedProfileId) &&
-        Number(profile.user_id) === Number(user?.user_id)
+        Number(profile.profile_id) === Number(selectedProfileId) &&
+        Number(profile.user_id) === Number(user?.user_id),
     );
 
-    if (
-      user?.user_id &&
-      selectedProfileId &&
-      profileBelongsToAccount
-    ) {
+    if (user?.user_id && selectedProfileId && profileBelongsToAccount) {
       refreshSelectedProfile(selectedProfileId);
       refreshWeightHistory(selectedProfileId);
-
-      refreshNutritionDay(
-        nutritionDate,
-        selectedProfileId
-      );
+      refreshNutritionDay(nutritionDate, selectedProfileId);
     }
 
     return () => {
       activeSelection.current = {
         ...activeSelection.current,
-        generation: activeSelection.current.generation + 1
+        generation: activeSelection.current.generation + 1,
       };
     };
-  }, [
-    user?.user_id,
-    selectedProfileId,
-    nutritionDate
-  ]);
+  }, [user?.user_id, selectedProfileId, nutritionDate]);
 
   useEffect(() => {
     initializeSession();
@@ -177,8 +177,7 @@ export function AppProvider({ children }) {
   function accountMatches(userId, generation) {
     return (
       userId != null &&
-      Number(userId) ===
-        Number(activeAccount.current.userId) &&
+      Number(userId) === Number(activeAccount.current.userId) &&
       generation === activeAccount.current.generation
     );
   }
@@ -188,19 +187,17 @@ export function AppProvider({ children }) {
 
     const accountIsCurrent =
       user?.user_id != null &&
-      Number(user.user_id) ===
-        Number(activeAccount.current.userId);
+      Number(user.user_id) === Number(activeAccount.current.userId);
 
     const profileIsCurrent =
       selectedProfileId != null &&
       Number.isInteger(profileId) &&
       profileId > 0 &&
-      profileId ===
-        Number(activeSelection.current.profileId);
+      profileId === Number(activeSelection.current.profileId);
 
     if (!accountIsCurrent || !profileIsCurrent) {
       throw new Error(
-        "The selected profile changed. Wait for its details to load."
+        "The selected profile changed. Wait for its details to load.",
       );
     }
 
@@ -216,15 +213,11 @@ export function AppProvider({ children }) {
 
       const data = await api.me();
 
-      if (requestId !== sessionRequest.current) {
-        return;
-      }
+      if (requestId !== sessionRequest.current) return;
 
       setUser(data.user);
     } catch (error) {
-      if (requestId !== sessionRequest.current) {
-        return;
-      }
+      if (requestId !== sessionRequest.current) return;
 
       if (error.status !== 401) {
         setGlobalError(error.message);
@@ -238,9 +231,7 @@ export function AppProvider({ children }) {
     }
   }
 
-  async function refreshProfiles(
-    explicitUserId = user?.user_id
-  ) {
+  async function refreshProfiles(explicitUserId = user?.user_id) {
     const generation = activeAccount.current.generation;
 
     if (!accountMatches(explicitUserId, generation)) {
@@ -258,16 +249,13 @@ export function AppProvider({ children }) {
 
       const data = await api.getProfiles(explicitUserId);
 
-      if (!isCurrentRequest()) {
-        return [];
-      }
+      if (!isCurrentRequest()) return [];
 
       setProfiles(data);
 
       setSelectedProfileId((current) => {
         const currentStillExists = data.some(
-          (profile) =>
-            Number(profile.profile_id) === Number(current)
+          (profile) => Number(profile.profile_id) === Number(current),
         );
 
         if (current != null && currentStillExists) {
@@ -296,7 +284,7 @@ export function AppProvider({ children }) {
     profileId,
     date,
     fetchData,
-    applyData
+    applyData,
   }) {
     const requestedUserId = user?.user_id;
     const generation = activeSelection.current.generation;
@@ -308,19 +296,13 @@ export function AppProvider({ children }) {
         requestedUserId != null &&
         profileId != null &&
         Number(requestedUserId) === Number(current.userId) &&
-        Number(requestedUserId) ===
-          Number(activeAccount.current.userId) &&
+        Number(requestedUserId) === Number(activeAccount.current.userId) &&
         Number(profileId) === Number(current.profileId) &&
-        (
-          kind !== "nutrition" ||
-          date === current.date
-        )
+        (kind !== "nutrition" || date === current.date)
       );
     }
 
-    if (!selectionMatches()) {
-      return null;
-    }
+    if (!selectionMatches()) return null;
 
     const requestId = ++latestRequest.current[kind];
 
@@ -335,9 +317,7 @@ export function AppProvider({ children }) {
     try {
       const data = await fetchData();
 
-      if (!isCurrentRequest()) {
-        return null;
-      }
+      if (!isCurrentRequest()) return null;
 
       applyData(data);
       return data;
@@ -350,46 +330,34 @@ export function AppProvider({ children }) {
     }
   }
 
-  async function refreshSelectedProfile(
-    profileId = selectedProfileId
-  ) {
+  async function refreshSelectedProfile(profileId = selectedProfileId) {
     return loadForSelection({
       kind: "profile",
       profileId,
-
       fetchData: () => api.getProfile(profileId),
-
       applyData: (profile) => {
         setSelectedProfile(profile);
-      }
+      },
     });
   }
 
-  async function refreshWeightHistory(
-    profileId = selectedProfileId
-  ) {
+  async function refreshWeightHistory(profileId = selectedProfileId) {
     const records = await loadForSelection({
       kind: "weight",
       profileId,
-
       fetchData: async () => {
         const data = await api.getWeightHistory(profileId);
 
         return [...data].sort((a, b) => {
           const dateDifference =
-            new Date(a.recorded_date) -
-            new Date(b.recorded_date);
+            new Date(a.recorded_date) - new Date(b.recorded_date);
 
-          return (
-            dateDifference ||
-            Number(a.weight_id) - Number(b.weight_id)
-          );
+          return dateDifference || Number(a.weight_id) - Number(b.weight_id);
         });
       },
-
       applyData: (history) => {
         setWeightHistory(history);
-      }
+      },
     });
 
     return records ?? [];
@@ -397,46 +365,35 @@ export function AppProvider({ children }) {
 
   async function refreshNutritionDay(
     date = nutritionDate,
-    profileId = selectedProfileId
+    profileId = selectedProfileId,
   ) {
     const result = await loadForSelection({
       kind: "nutrition",
       profileId,
       date,
-
       fetchData: async () => {
         const [logs, totals] = await Promise.all([
           api.getNutritionLogs(profileId, date),
-          api.getNutritionTotals(profileId, date)
+          api.getNutritionTotals(profileId, date),
         ]);
 
         return { logs, totals };
       },
-
       applyData: ({ logs, totals }) => {
         setNutritionLogs(logs);
         setNutritionTotals(totals);
-      }
+      },
     });
 
-    return result ?? {
-      logs: [],
-      totals: null
-    };
+    return result ?? { logs: [], totals: null };
   }
 
   async function saveNutritionLog(payload) {
     const profileId = requireCurrentProfile();
 
-    const result = await api.saveNutritionLog(
-      profileId,
-      payload
-    );
+    const result = await api.saveNutritionLog(profileId, payload);
 
-    await refreshNutritionDay(
-      nutritionDate,
-      profileId
-    );
+    await refreshNutritionDay(nutritionDate, profileId);
 
     return result;
   }
@@ -444,15 +401,9 @@ export function AppProvider({ children }) {
   async function deleteNutritionLog(logId) {
     const profileId = requireCurrentProfile();
 
-    const result = await api.deleteNutritionLog(
-      profileId,
-      logId
-    );
+    const result = await api.deleteNutritionLog(profileId, logId);
 
-    await refreshNutritionDay(
-      nutritionDate,
-      profileId
-    );
+    await refreshNutritionDay(nutritionDate, profileId);
 
     return result;
   }
@@ -483,17 +434,16 @@ export function AppProvider({ children }) {
     } finally {
       sessionRequest.current += 1;
 
-      // Immediately invalidate pending account requests.
       activeAccount.current = {
         userId: null,
-        generation: activeAccount.current.generation + 1
+        generation: activeAccount.current.generation + 1,
       };
 
       activeSelection.current = {
         userId: null,
         profileId: null,
         date: null,
-        generation: activeSelection.current.generation + 1
+        generation: activeSelection.current.generation + 1,
       };
 
       setUser(null);
@@ -513,25 +463,16 @@ export function AppProvider({ children }) {
       throw new Error("Login required");
     }
 
-    const result = await api.createProfile(
-      userId,
-      payload
-    );
+    const result = await api.createProfile(userId, payload);
 
-    if (!accountMatches(userId, generation)) {
-      return result;
-    }
+    if (!accountMatches(userId, generation)) return result;
 
     const updated = await refreshProfiles(userId);
 
-    if (!accountMatches(userId, generation)) {
-      return result;
-    }
+    if (!accountMatches(userId, generation)) return result;
 
     const newProfile = updated.find(
-      (profile) =>
-        Number(profile.profile_id) ===
-          Number(result.profile_id)
+      (profile) => Number(profile.profile_id) === Number(result.profile_id),
     );
 
     if (newProfile) {
@@ -541,10 +482,7 @@ export function AppProvider({ children }) {
     return result;
   }
 
-  async function updateSelectedProfile(
-    payload,
-    formProfileId
-  ) {
+  async function updateSelectedProfile(payload, formProfileId) {
     const profileId = requireCurrentProfile();
     const formOwnerId = Number(formProfileId);
 
@@ -554,34 +492,27 @@ export function AppProvider({ children }) {
       formOwnerId !== profileId
     ) {
       throw new Error(
-        "The selected profile changed. Wait for its details to load before saving."
+        "The selected profile changed. Wait for its details to load before saving.",
       );
     }
 
     const userId = user?.user_id;
     const generation = activeAccount.current.generation;
 
-    const result = await api.updateProfile(
-      profileId,
-      payload
-    );
+    const result = await api.updateProfile(profileId, payload);
 
-    if (!accountMatches(userId, generation)) {
-      return result;
-    }
+    if (!accountMatches(userId, generation)) return result;
 
     await Promise.all([
       refreshProfiles(userId),
-      refreshSelectedProfile(profileId)
+      refreshSelectedProfile(profileId),
     ]);
 
     return result;
   }
 
   async function deleteSelectedProfile() {
-    if (!selectedProfileId) {
-      return;
-    }
+    if (!selectedProfileId) return;
 
     const profileId = requireCurrentProfile();
     const userId = user?.user_id;
@@ -589,13 +520,10 @@ export function AppProvider({ children }) {
 
     await api.deleteProfile(profileId);
 
-    if (!accountMatches(userId, generation)) {
-      return;
-    }
+    if (!accountMatches(userId, generation)) return;
 
-    // Do not clear a different profile selected during deletion.
     setSelectedProfileId((current) =>
-      Number(current) === profileId ? null : current
+      Number(current) === profileId ? null : current,
     );
 
     await refreshProfiles(userId);
@@ -606,19 +534,14 @@ export function AppProvider({ children }) {
     const userId = user?.user_id;
     const generation = activeAccount.current.generation;
 
-    const result = await api.addWeight(
-      profileId,
-      payload
-    );
+    const result = await api.addWeight(profileId, payload);
 
-    if (!accountMatches(userId, generation)) {
-      return result;
-    }
+    if (!accountMatches(userId, generation)) return result;
 
     await Promise.all([
       refreshSelectedProfile(profileId),
       refreshWeightHistory(profileId),
-      refreshProfiles(userId)
+      refreshProfiles(userId),
     ]);
 
     return result;
@@ -626,6 +549,11 @@ export function AppProvider({ children }) {
 
   const value = useMemo(
     () => ({
+      weightUnit,
+      lengthUnit,
+      setWeightUnit,
+      setLengthUnit,
+      unitPreferenceError,
       sessionLoading,
       profilesLoading,
       user,
@@ -652,9 +580,12 @@ export function AppProvider({ children }) {
       updateSelectedProfile,
       deleteSelectedProfile,
       addWeight,
-      selectProfile: setSelectedProfileId
+      selectProfile: setSelectedProfileId,
     }),
     [
+      weightUnit,
+      lengthUnit,
+      unitPreferenceError,
       sessionLoading,
       profilesLoading,
       user,
@@ -665,24 +596,18 @@ export function AppProvider({ children }) {
       nutritionDate,
       nutritionLogs,
       nutritionTotals,
-      globalError
-    ]
+      globalError,
+    ],
   );
 
-  return (
-    <AppContext.Provider value={value}>
-      {children}
-    </AppContext.Provider>
-  );
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 
 export function useApp() {
   const context = useContext(AppContext);
 
   if (!context) {
-    throw new Error(
-      "useApp must be used inside AppProvider"
-    );
+    throw new Error("useApp must be used inside AppProvider");
   }
 
   return context;

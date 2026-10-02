@@ -1,24 +1,15 @@
 import { Check, Circle, Plus, Trash2 } from "lucide-react";
-
-import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState
-} from "react";
-
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import GlassCard from "../components/ui/GlassCard";
 import NeonButton from "../components/ui/NeonButton";
 import PageHeader from "../components/ui/PageHeader";
-
 import { useApp } from "../context/AppContext";
 import { api } from "../services/api";
 
-// Runs one mutation at a time and ignores its result after unmount.
+// Prevent duplicate actions and ignore results after unmount.
 function useSafeAction() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-
   const lifecycle = useRef(0);
   const locked = useRef(false);
 
@@ -32,13 +23,10 @@ function useSafeAction() {
   }, []);
 
   async function run(action) {
-    if (locked.current) {
-      return;
-    }
+    if (locked.current) return;
 
     const generation = lifecycle.current;
-    const isCurrent = () =>
-      lifecycle.current === generation;
+    const isCurrent = () => lifecycle.current === generation;
 
     locked.current = true;
     setBusy(true);
@@ -48,7 +36,7 @@ function useSafeAction() {
       await action(isCurrent);
     } catch (error) {
       if (isCurrent()) {
-        setError(error.message);
+        setError(error.message || "Something went wrong.");
       }
     } finally {
       if (isCurrent()) {
@@ -72,24 +60,16 @@ export default function TasksPage() {
     );
   }
 
-  // A different account gets a completely new workspace.
-  return (
-    <TaskWorkspace
-      key={user.user_id}
-      userId={user.user_id}
-    />
-  );
+  return <TaskWorkspace key={user.user_id} userId={user.user_id} />;
 }
 
 function TaskWorkspace({ userId }) {
   const [lists, setLists] = useState([]);
   const [selectedListId, setSelectedListId] = useState(null);
   const [listName, setListName] = useState("");
-
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [reload, setReload] = useState(0);
-
   const { busy, error, run } = useSafeAction();
 
   useEffect(() => {
@@ -101,33 +81,24 @@ function TaskWorkspace({ userId }) {
 
       try {
         const data = await api.getTaskLists(userId);
-
-        if (cancelled) {
-          return;
-        }
+        if (cancelled) return;
 
         setLists(data);
-
         setSelectedListId((current) => {
-          const stillExists = data.some(
-            (list) =>
-              Number(list.list_id) === Number(current)
+          const exists = data.some(
+            (list) => Number(list.list_id) === Number(current)
           );
 
-          if (current != null && stillExists) {
-            return current;
-          }
-
-          return data[0]?.list_id ?? null;
+          return current != null && exists
+            ? current
+            : data[0]?.list_id ?? null;
         });
       } catch (error) {
         if (!cancelled) {
-          setLoadError(error.message);
+          setLoadError(error.message || "Could not load your lists.");
         }
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     }
 
@@ -138,14 +109,21 @@ function TaskWorkspace({ userId }) {
     };
   }, [userId, reload]);
 
+  const disabled = busy || loading || Boolean(loadError);
+  const selectedList = lists.find(
+    (list) => Number(list.list_id) === Number(selectedListId)
+  );
+
+  function reloadLists() {
+    setLoading(true);
+    setReload((current) => current + 1);
+  }
+
   function createList(event) {
     event.preventDefault();
 
     const name = listName.trim();
-
-    if (!name || loading) {
-      return;
-    }
+    if (disabled || !name) return;
 
     return run(async (isCurrent) => {
       const result = await api.createTaskList(userId, {
@@ -153,63 +131,43 @@ function TaskWorkspace({ userId }) {
         list_type: "todo"
       });
 
-      if (!isCurrent()) {
-        return;
-      }
+      if (!isCurrent()) return;
 
       const created = result.list;
-
       setListName("");
 
       if (created?.list_id) {
         setLists((current) => [
           ...current.filter(
-            (list) =>
-              Number(list.list_id) !== Number(created.list_id)
+            (list) => Number(list.list_id) !== Number(created.list_id)
           ),
           created
         ]);
-
         setSelectedListId(created.list_id);
       } else {
-        setReload((current) => current + 1);
+        reloadLists();
       }
     });
   }
 
   function removeList() {
-    if (!selectedListId || busy || loading) {
-      return;
-    }
+    if (disabled || !selectedListId) return;
+    if (!window.confirm("Delete this list and its tasks?")) return;
 
-    if (!window.confirm("Delete this list and its tasks?")) {
-      return;
-    }
-
-    // Capture the target before the request starts.
     const listId = selectedListId;
 
     return run(async (isCurrent) => {
       await api.deleteTaskList(userId, listId);
-
-      if (!isCurrent()) {
-        return;
-      }
+      if (!isCurrent()) return;
 
       const remaining = lists.filter(
-        (list) =>
-          Number(list.list_id) !== Number(listId)
+        (list) => Number(list.list_id) !== Number(listId)
       );
 
       setLists(remaining);
       setSelectedListId(remaining[0]?.list_id ?? null);
     });
   }
-
-  const selectedList = lists.find(
-    (list) =>
-      Number(list.list_id) === Number(selectedListId)
-  );
 
   return (
     <>
@@ -220,10 +178,7 @@ function TaskWorkspace({ userId }) {
       />
 
       {(error || loadError) && (
-        <div
-          className="inline-error page-error"
-          role="alert"
-        >
+        <div className="inline-error page-error" role="alert">
           {error || loadError}
         </div>
       )}
@@ -237,41 +192,32 @@ function TaskWorkspace({ userId }) {
             </div>
           </div>
 
-          <form
-            className="inline-form"
-            onSubmit={createList}
-          >
+          <form className="inline-form" onSubmit={createList}>
             <input
               required
               aria-label="New list name"
               value={listName}
-              disabled={busy || loading}
-              onChange={(event) =>
-                setListName(event.target.value)
-              }
+              disabled={disabled}
+              onChange={(event) => setListName(event.target.value)}
               placeholder="New list"
             />
 
             <NeonButton
               type="submit"
-              disabled={busy || loading || !listName.trim()}
+              disabled={disabled || !listName.trim()}
             >
               <Plus size={15} />
               Add
             </NeonButton>
           </form>
 
-          {loading && (
-            <p role="status">Loading lists…</p>
-          )}
+          {loading && <p role="status">Loading lists…</p>}
 
           {!loading && loadError && (
             <NeonButton
               variant="secondary"
               disabled={busy}
-              onClick={() =>
-                setReload((current) => current + 1)
-              }
+              onClick={reloadLists}
             >
               Retry loading lists
             </NeonButton>
@@ -282,15 +228,13 @@ function TaskWorkspace({ userId }) {
               <button
                 type="button"
                 key={list.list_id}
-                disabled={busy || loading}
+                disabled={disabled}
                 className={`list-option ${
                   Number(selectedListId) === Number(list.list_id)
                     ? "is-active"
                     : ""
                 }`}
-                onClick={() =>
-                  setSelectedListId(list.list_id)
-                }
+                onClick={() => setSelectedListId(list.list_id)}
               >
                 <span>{list.list_name}</span>
                 <small>{list.list_type}</small>
@@ -306,7 +250,7 @@ function TaskWorkspace({ userId }) {
             <button
               type="button"
               className="danger-button full-width"
-              disabled={busy || loading}
+              disabled={disabled}
               onClick={removeList}
             >
               <Trash2 size={15} />
@@ -321,7 +265,7 @@ function TaskWorkspace({ userId }) {
             userId={userId}
             listId={selectedList.list_id}
             listName={selectedList.list_name}
-            workspaceBusy={busy || loading}
+            workspaceBusy={disabled}
           />
         ) : (
           <GlassCard className="task-main-card" glow>
@@ -347,19 +291,12 @@ function emptyTaskForm() {
   };
 }
 
-function TaskListPanel({
-  userId,
-  listId,
-  listName,
-  workspaceBusy
-}) {
+function TaskListPanel({ userId, listId, listName, workspaceBusy }) {
   const [tasks, setTasks] = useState([]);
   const [taskForm, setTaskForm] = useState(emptyTaskForm);
-
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [reload, setReload] = useState(0);
-
   const { busy, error, run } = useSafeAction();
 
   useEffect(() => {
@@ -372,77 +309,58 @@ function TaskListPanel({
 
       try {
         const data = await api.getTasks(userId, listId);
-
-        if (cancelled) {
-          return;
-        }
-
-        setTasks(data);
+        if (!cancelled) setTasks(data);
       } catch (error) {
         if (!cancelled) {
-          setLoadError(error.message);
+          setLoadError(error.message || "Could not load your tasks.");
         }
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     }
 
     loadTasks();
 
     return () => {
-      // Switching lists invalidates this request.
       cancelled = true;
     };
   }, [userId, listId, reload]);
 
-  const controlsDisabled =
+  const disabled =
     busy || loading || workspaceBusy || Boolean(loadError);
 
   function updateTaskForm(field, value) {
-    setTaskForm((current) => ({
-      ...current,
-      [field]: value
-    }));
+    setTaskForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function reloadTasks() {
+    setLoading(true);
+    setReload((current) => current + 1);
   }
 
   function createTask(event) {
     event.preventDefault();
-
-    if (controlsDisabled || !taskForm.title.trim()) {
-      return;
-    }
+    if (disabled || !taskForm.title.trim()) return;
 
     const payload = {
       title: taskForm.title.trim(),
       description: taskForm.description,
-      time_limit_minutes:
-        taskForm.time_limit_minutes || null,
+      time_limit_minutes: taskForm.time_limit_minutes || null,
       due_at: taskForm.due_at || null,
       reminder_at: taskForm.reminder_at || null
     };
 
     return run(async (isCurrent) => {
       await api.createTask(userId, listId, payload);
-
-      if (!isCurrent()) {
-        return;
-      }
+      if (!isCurrent()) return;
 
       setTaskForm(emptyTaskForm());
-      setLoading(true);
-      setReload((current) => current + 1);
+      reloadTasks();
     });
   }
 
   function toggle(task) {
-    if (
-      controlsDisabled ||
-      Number(task.list_id) !== Number(listId)
-    ) {
-      return;
-    }
+    if (disabled || Number(task.list_id) !== Number(listId)) return;
 
     return run(async (isCurrent) => {
       await api.setTaskCompletion(
@@ -452,36 +370,16 @@ function TaskListPanel({
         !Boolean(task.is_completed)
       );
 
-      if (!isCurrent()) {
-        return;
-      }
-
-      setLoading(true);
-      setReload((current) => current + 1);
+      if (isCurrent()) reloadTasks();
     });
   }
 
   function removeTask(task) {
-    if (
-      controlsDisabled ||
-      Number(task.list_id) !== Number(listId)
-    ) {
-      return;
-    }
+    if (disabled || Number(task.list_id) !== Number(listId)) return;
 
     return run(async (isCurrent) => {
-      await api.deleteTask(
-        userId,
-        listId,
-        task.task_id
-      );
-
-      if (!isCurrent()) {
-        return;
-      }
-
-      setLoading(true);
-      setReload((current) => current + 1);
+      await api.deleteTask(userId, listId, task.task_id);
+      if (isCurrent()) reloadTasks();
     });
   }
 
@@ -496,30 +394,22 @@ function TaskListPanel({
         <span className="metric-chip">
           {loading
             ? "Loading…"
-            : `${
-                tasks.filter((task) => task.is_completed).length
-              }/${tasks.length}`}
+            : `${tasks.filter((task) => task.is_completed).length}/${tasks.length}`}
         </span>
       </div>
 
       {(error || loadError) && (
-        <div
-          className="inline-error page-error"
-          role="alert"
-        >
+        <div className="inline-error page-error" role="alert">
           {error || loadError}
         </div>
       )}
 
-      <form
-        className="task-create-form"
-        onSubmit={createTask}
-      >
+      <form className="task-create-form" onSubmit={createTask}>
         <input
           required
           aria-label="Task title"
           value={taskForm.title}
-          disabled={controlsDisabled}
+          disabled={disabled}
           onChange={(event) =>
             updateTaskForm("title", event.target.value)
           }
@@ -529,7 +419,7 @@ function TaskListPanel({
         <input
           aria-label="Task description"
           value={taskForm.description}
-          disabled={controlsDisabled}
+          disabled={disabled}
           onChange={(event) =>
             updateTaskForm("description", event.target.value)
           }
@@ -539,11 +429,10 @@ function TaskListPanel({
         <div className="task-create-form__row">
           <label>
             <span>Due</span>
-
             <input
               type="datetime-local"
               value={taskForm.due_at}
-              disabled={controlsDisabled}
+              disabled={disabled}
               onChange={(event) =>
                 updateTaskForm("due_at", event.target.value)
               }
@@ -552,16 +441,12 @@ function TaskListPanel({
 
           <label>
             <span>Reminder</span>
-
             <input
               type="datetime-local"
               value={taskForm.reminder_at}
-              disabled={controlsDisabled}
+              disabled={disabled}
               onChange={(event) =>
-                updateTaskForm(
-                  "reminder_at",
-                  event.target.value
-                )
+                updateTaskForm("reminder_at", event.target.value)
               }
             />
           </label>
@@ -569,7 +454,7 @@ function TaskListPanel({
 
         <NeonButton
           type="submit"
-          disabled={controlsDisabled || !taskForm.title.trim()}
+          disabled={disabled || !taskForm.title.trim()}
         >
           {busy ? "Working..." : "Add task"}
         </NeonButton>
@@ -579,10 +464,7 @@ function TaskListPanel({
         <NeonButton
           variant="secondary"
           disabled={busy || loading || workspaceBusy}
-          onClick={() => {
-            setLoading(true);
-            setReload((current) => current + 1);
-          }}
+          onClick={reloadTasks}
         >
           Retry loading tasks
         </NeonButton>
@@ -597,14 +479,12 @@ function TaskListPanel({
           tasks.map((task) => (
             <div
               key={task.task_id}
-              className={`task-row ${
-                task.is_completed ? "is-done" : ""
-              }`}
+              className={`task-row ${task.is_completed ? "is-done" : ""}`}
             >
               <button
                 type="button"
                 className="task-check"
-                disabled={controlsDisabled}
+                disabled={disabled}
                 aria-label={
                   task.is_completed
                     ? `Mark ${task.title} incomplete`
@@ -621,10 +501,9 @@ function TaskListPanel({
 
               <div className="task-row__body">
                 <strong>{task.title}</strong>
-
                 <span>
                   {task.due_at
-                    ? `Due ${String(task.due_at).replace("T", " ")}`
+                    ? `Due ${new Date(task.due_at).toLocaleString()}`
                     : "No due date"}
                 </span>
               </div>
@@ -632,7 +511,7 @@ function TaskListPanel({
               <button
                 type="button"
                 className="icon-button"
-                disabled={controlsDisabled}
+                disabled={disabled}
                 aria-label={`Delete ${task.title}`}
                 onClick={() => removeTask(task)}
               >
@@ -643,9 +522,7 @@ function TaskListPanel({
         )}
 
         {!loading && !loadError && tasks.length === 0 && (
-          <div className="empty-state">
-            No tasks in this list.
-          </div>
+          <div className="empty-state">No tasks in this list.</div>
         )}
       </div>
     </GlassCard>

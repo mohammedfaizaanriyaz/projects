@@ -179,13 +179,8 @@ export default function RemindersPage() {
                       ? `${reminder.list_name} · `
                       : ""}
                     {reminder.reminder_at
-                      ? String(
-                          reminder.reminder_at
-                        ).replace(
-                          "T",
-                          " "
-                        )
-                      : "Due now"}
+  ? new Date(reminder.reminder_at).toLocaleString()
+  : "Due now"}
                   </span>
                 </div>
 

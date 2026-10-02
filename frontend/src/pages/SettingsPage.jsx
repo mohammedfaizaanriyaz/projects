@@ -1,98 +1,49 @@
-import {
-  Moon,
-  Ruler,
-  ShieldCheck
-} from "lucide-react";
-
-import {
-  useEffect,
-  useState
-} from "react";
-
-import GlassCard
-  from "../components/ui/GlassCard";
-
-import PageHeader
-  from "../components/ui/PageHeader";
+import { Ruler, Scale, ShieldCheck } from "lucide-react";
+import GlassCard from "../components/ui/GlassCard";
+import PageHeader from "../components/ui/PageHeader";
+import { useApp } from "../context/AppContext";
 
 export default function SettingsPage() {
-  const [
+  const {
     weightUnit,
-    setWeightUnit
-  ] =
-    useState(
-      () =>
-        localStorage
-          .getItem(
-            "vyra_weight_unit"
-          ) ||
-        "kg"
-    );
-
-  const [
     lengthUnit,
-    setLengthUnit
-  ] =
-    useState(
-      () =>
-        localStorage
-          .getItem(
-            "vyra_length_unit"
-          ) ||
-        "cm"
-    );
-
-  useEffect(() => {
-    localStorage.setItem(
-      "vyra_weight_unit",
-      weightUnit
-    );
-  }, [weightUnit]);
-
-  useEffect(() => {
-    localStorage.setItem(
-      "vyra_length_unit",
-      lengthUnit
-    );
-  }, [lengthUnit]);
+    setWeightUnit,
+    setLengthUnit,
+    unitPreferenceError
+  } = useApp();
 
   return (
     <>
       <PageHeader
         eyebrow="Control center"
         title="Settings"
-        subtitle="Local presentation preferences only — login identity still comes from the backend session."
+        subtitle="Unit preferences are stored on this browser and shared across profiles."
       />
+
+      {unitPreferenceError && (
+        <div className="inline-error page-error" role="alert">
+          {unitPreferenceError}
+        </div>
+      )}
 
       <div className="settings-grid">
         <GlassCard>
           <div className="settings-row">
-            <Ruler
-              size={21}
-            />
+            <Scale size={21} />
             <div>
-              <strong>
-                Weight unit
-              </strong>
+              <label htmlFor="weight-unit">
+                <strong>Weight unit</strong>
+              </label>
+
               <select
-                value={
-                  weightUnit
-                }
-                onChange={(
-                  event
-                ) =>
-                  setWeightUnit(
-                    event.target
-                      .value
-                  )
+                id="weight-unit"
+                value={weightUnit}
+                onChange={(event) =>
+                  setWeightUnit(event.target.value)
                 }
               >
-                <option value="kg">
-                  kg
-                </option>
-                <option value="lb">
-                  lb
-                </option>
+                <option value="kg">Kilograms (kg)</option>
+                <option value="lb">Pounds (lb)</option>
               </select>
             </div>
           </div>
@@ -100,32 +51,21 @@ export default function SettingsPage() {
 
         <GlassCard>
           <div className="settings-row">
-            <Moon
-              size={21}
-            />
+            <Ruler size={21} />
             <div>
-              <strong>
-                Length unit
-              </strong>
+              <label htmlFor="length-unit">
+                <strong>Length unit</strong>
+              </label>
+
               <select
-                value={
-                  lengthUnit
-                }
-                onChange={(
-                  event
-                ) =>
-                  setLengthUnit(
-                    event.target
-                      .value
-                  )
+                id="length-unit"
+                value={lengthUnit}
+                onChange={(event) =>
+                  setLengthUnit(event.target.value)
                 }
               >
-                <option value="cm">
-                  cm
-                </option>
-                <option value="in">
-                  inches
-                </option>
+                <option value="cm">Centimetres (cm)</option>
+                <option value="in">Inches (in)</option>
               </select>
             </div>
           </div>
@@ -133,17 +73,10 @@ export default function SettingsPage() {
 
         <GlassCard>
           <div className="settings-row">
-            <ShieldCheck
-              size={21}
-            />
+            <ShieldCheck size={21} />
             <div>
-              <strong>
-                Identity
-              </strong>
-              <span>
-                HTTP-only backend
-                auth cookie
-              </span>
+              <strong>Identity</strong>
+              <span>HTTP-only backend auth cookie</span>
             </div>
           </div>
         </GlassCard>

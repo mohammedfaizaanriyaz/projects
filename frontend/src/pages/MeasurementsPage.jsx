@@ -1,149 +1,245 @@
 import { Save } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 import GlassCard from "../components/ui/GlassCard";
 import NeonButton from "../components/ui/NeonButton";
 import PageHeader from "../components/ui/PageHeader";
-
 import { useApp } from "../context/AppContext";
+
+const KG_PER_POUND = 0.45359237;
+const CM_PER_INCH = 2.54;
+
+const MEASUREMENTS = [
+  ["height_cm", "Height", true],
+  ["waist_cm", "Waist", false],
+  ["chest_cm", "Chest", false],
+  ["neck_cm", "Neck", false],
+  ["hip_cm", "Hip", false],
+  ["target_weight_kg", "Target weight", false],
+];
+
+const ACTIVITIES = [
+  ["not_specified", "Not specified"],
+  ["sedentary", "Sedentary"],
+  ["lightly_active", "Lightly active"],
+  ["moderately_active", "Moderately active"],
+  ["very_active", "Very active"],
+  ["extra_active", "Extra active"],
+];
+
+function measurementFactor(field, units) {
+  if (field === "target_weight_kg") {
+    return units.weight === "lb" ? KG_PER_POUND : 1;
+  }
+
+  return units.length === "in" ? CM_PER_INCH : 1;
+}
+
+function displayMeasurement(value, factor) {
+  if (value === null || value === undefined || value === "") {
+    return "";
+  }
+
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "";
+
+  return String(Number((number / factor).toFixed(2)));
+}
+
+function createEditor(profile, units) {
+  const values = {
+    profile_name: profile.profile_name || "",
+    dob: profile.dob ? String(profile.dob).slice(0, 10) : "",
+    gender: profile.gender || "",
+    activity_level: profile.activity_level || "not_specified",
+  };
+
+  const stored = {};
+
+  for (const [field] of MEASUREMENTS) {
+    stored[field] = profile[field] == null ? null : Number(profile[field]);
+
+    values[field] = displayMeasurement(
+      stored[field],
+      measurementFactor(field, units),
+    );
+  }
+
+  return {
+    values,
+    originalValues: { ...values },
+    stored,
+  };
+}
+
+function storedMeasurement(editor, field, label, required, units) {
+  const value = editor.values[field];
+
+  // Preserve the original metric value if the input is unchanged.
+  if (value === editor.originalValues[field]) {
+    if (required && editor.stored[field] == null) {
+      throw new Error(`${label} is required.`);
+    }
+
+    return editor.stored[field];
+  }
+
+  if (value.trim() === "") {
+    if (required) throw new Error(`${label} is required.`);
+    return null;
+  }
+
+  const entered = Number(value);
+
+  if (!Number.isFinite(entered) || entered <= 0) {
+    throw new Error(`${label} must be a positive number.`);
+  }
+
+  const converted = entered * measurementFactor(field, units);
+  const rounded = Number(converted.toFixed(2));
+
+  if (
+    !Number.isFinite(converted) ||
+    converted > 999.99 ||
+    rounded < 0.01 ||
+    rounded > 999.99
+  ) {
+    throw new Error(`${label} is outside the supported storage range.`);
+  }
+
+  return rounded;
+}
 
 export default function MeasurementsPage() {
   const {
+    user,
     selectedProfileId,
     selectedProfile,
-    updateSelectedProfile
+    updateSelectedProfile,
+    weightUnit,
+    lengthUnit,
   } = useApp();
 
-  const [formProfileId, setFormProfileId] = useState(null);
+  const profileReady =
+    selectedProfileId != null &&
+    selectedProfile &&
+    Number(selectedProfile.profile_id) === Number(selectedProfileId);
+
+  if (!profileReady) {
+    return (
+      <GlassCard>
+        <p role="status">Waiting for the selected profile’s details…</p>
+      </GlassCard>
+    );
+  }
+
+  return (
+    <MeasurementsEditor
+      key={JSON.stringify([user?.user_id, selectedProfileId])}
+      profile={selectedProfile}
+      updateSelectedProfile={updateSelectedProfile}
+      preferredWeightUnit={weightUnit === "lb" ? "lb" : "kg"}
+      preferredLengthUnit={lengthUnit === "in" ? "in" : "cm"}
+    />
+  );
+}
+
+function MeasurementsEditor({
+  profile,
+  updateSelectedProfile,
+  preferredWeightUnit,
+  preferredLengthUnit,
+}) {
+  // Keep the units fixed while this form is open.
+  const [units] = useState(() => ({
+    weight: preferredWeightUnit,
+    length: preferredLengthUnit,
+  }));
+
+  const [editor, setEditor] = useState(() => createEditor(profile, units));
   const [saving, setSaving] = useState(false);
-
-  const [form, setForm] = useState({
-    profile_name: "",
-    dob: "",
-    gender: "",
-    height_cm: "",
-    waist_cm: "",
-    chest_cm: "",
-    neck_cm: "",
-    hip_cm: "",
-    target_weight_kg: "",
-    activity_level: "not_specified"
-  });
-
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    const profileMatches =
-      selectedProfile != null &&
-      Number(selectedProfile.profile_id) ===
-      Number(selectedProfileId);
+  const locked = useRef(false);
+  const lifecycle = useRef(0);
+  const formProfileId = Number(profile.profile_id);
+  const form = editor.values;
 
-    if (!profileMatches) {
-      setFormProfileId(null);
-      return;
-    }
+  useLayoutEffect(() => {
+    lifecycle.current += 1;
 
-    setFormProfileId(Number(selectedProfile.profile_id));
+    return () => {
+      lifecycle.current += 1;
+      locked.current = false;
+    };
+  }, []);
 
-    setForm({
-      profile_name: selectedProfile.profile_name || "",
+  function update(field, value) {
+    if (locked.current) return;
 
-      dob: selectedProfile.dob
-        ? String(selectedProfile.dob).slice(0, 10)
-        : "",
-
-      gender: selectedProfile.gender || "",
-      height_cm: selectedProfile.height_cm ?? "",
-      waist_cm: selectedProfile.waist_cm ?? "",
-      chest_cm: selectedProfile.chest_cm ?? "",
-      neck_cm: selectedProfile.neck_cm ?? "",
-      hip_cm: selectedProfile.hip_cm ?? "",
-
-      target_weight_kg:
-        selectedProfile.target_weight_kg ?? "",
-
-      activity_level:
-        selectedProfile.activity_level || "not_specified"
-    });
+    setEditor((current) => ({
+      ...current,
+      values: { ...current.values, [field]: value },
+    }));
 
     setMessage("");
     setError("");
-  }, [selectedProfile, selectedProfileId]);
-
-  function update(field, value) {
-    setForm((current) => ({
-      ...current,
-      [field]: value
-    }));
   }
-
-  function optionalNumber(value) {
-    return value === "" ? null : Number(value);
-  }
-
-  const formReady =
-    formProfileId !== null &&
-    selectedProfile != null &&
-    Number(formProfileId) === Number(selectedProfileId) &&
-    Number(selectedProfile.profile_id) ===
-    Number(selectedProfileId);
 
   async function submit(event) {
     event.preventDefault();
+    if (locked.current) return;
 
-    if (saving) {
-      return;
-    }
+    const generation = lifecycle.current;
+    const isCurrent = () => lifecycle.current === generation;
 
-    if (!formReady) {
-      setError(
-        "Wait for the selected profile's details to load."
-      );
-      return;
-    }
+    locked.current = true;
+    setSaving(true);
+    setError("");
+    setMessage("");
 
     try {
-      setSaving(true);
-      setError("");
-      setMessage("");
+      const profileName = form.profile_name.trim();
 
-      await updateSelectedProfile(
-        {
-          profile_name: form.profile_name,
-          dob: form.dob,
-          gender: form.gender,
-          height_cm: Number(form.height_cm),
+      if (!profileName || Array.from(profileName).length > 100) {
+        throw new Error("Profile name must contain 1 to 100 characters.");
+      }
 
-          waist_cm: optionalNumber(form.waist_cm),
-          chest_cm: optionalNumber(form.chest_cm),
-          neck_cm: optionalNumber(form.neck_cm),
-          hip_cm: optionalNumber(form.hip_cm),
+      const payload = {
+        profile_name: profileName,
+        dob: form.dob,
+        gender: form.gender,
+        activity_level: form.activity_level,
+      };
 
-          target_weight_kg:
-            optionalNumber(form.target_weight_kg),
+      for (const [field, label, required] of MEASUREMENTS) {
+        payload[field] = storedMeasurement(
+          editor,
+          field,
+          label,
+          required,
+          units,
+        );
+      }
 
-          activity_level: form.activity_level
-        },
-        formProfileId
-      );
+      await updateSelectedProfile(payload, formProfileId);
 
+      if (!isCurrent()) return;
+
+      // The saved metric values become the new unchanged-value baseline.
+      setEditor(createEditor(payload, units));
       setMessage("Profile updated.");
     } catch (error) {
-      setError(error.message);
+      if (isCurrent()) {
+        setError(error.message || "Could not update the profile.");
+      }
     } finally {
-      setSaving(false);
+      if (isCurrent()) {
+        locked.current = false;
+        setSaving(false);
+      }
     }
-  }
-
-  if (!formReady) {
-    return (
-      <GlassCard>
-        <p role="status">
-          Waiting for the selected profile's details…
-        </p>
-      </GlassCard>
-    );
   }
 
   return (
@@ -151,141 +247,111 @@ export default function MeasurementsPage() {
       <PageHeader
         eyebrow="Health / profile"
         title="Measurements"
-        subtitle="Edit the optional measurements and profile fields stored in MariaDB."
+        subtitle="Edit your current measurements using the units shown beside each field."
       />
 
       <GlassCard glow>
         <form className="form-grid" onSubmit={submit}>
+          {(units.weight !== preferredWeightUnit ||
+            units.length !== preferredLengthUnit) && (
+            <p className="form-grid__full" role="status">
+              This open form still uses {units.weight} and {units.length}. Save
+              your changes, then reopen this page to use your new unit
+              preferences.
+            </p>
+          )}
+
           <label className="field">
             <span>Profile name</span>
-
             <input
               required
               value={form.profile_name}
-              onChange={(event) =>
-                update("profile_name", event.target.value)
-              }
+              disabled={saving}
+              onChange={(event) => update("profile_name", event.target.value)}
             />
           </label>
 
           <label className="field">
             <span>DOB</span>
-
             <input
               required
               type="date"
+              min="1000-01-01"
+              max={new Date().toISOString().slice(0, 10)}
               value={form.dob}
-              onChange={(event) =>
-                update("dob", event.target.value)
-              }
+              disabled={saving}
+              onChange={(event) => update("dob", event.target.value)}
             />
           </label>
 
           <label className="field">
             <span>Gender</span>
-
             <select
+              required
               value={form.gender}
-              onChange={(event) =>
-                update("gender", event.target.value)
-              }
+              disabled={saving}
+              onChange={(event) => update("gender", event.target.value)}
             >
+              <option value="" disabled>
+                Select gender
+              </option>
               <option value="male">Male</option>
               <option value="female">Female</option>
             </select>
           </label>
 
-          <label className="field">
-            <span>Height (cm)</span>
+          {MEASUREMENTS.map(([field, label, required]) => {
+            const unit =
+              field === "target_weight_kg" ? units.weight : units.length;
 
-            <input
-              required
-              type="number"
-              step="0.1"
-              min="1"
-              value={form.height_cm}
-              onChange={(event) =>
-                update("height_cm", event.target.value)
-              }
-            />
-          </label>
-
-          {[
-            ["waist_cm", "Waist (cm)"],
-            ["chest_cm", "Chest (cm)"],
-            ["neck_cm", "Neck (cm)"],
-            ["hip_cm", "Hip (cm)"],
-            ["target_weight_kg", "Target weight (kg)"]
-          ].map(([field, label]) => (
-            <label className="field" key={field}>
-              <span>{label}</span>
-
-              <input
-                type="number"
-                min="1"
-                step="0.1"
-                value={form[field]}
-                onChange={(event) =>
-                  update(field, event.target.value)
-                }
-                placeholder="Optional"
-              />
-            </label>
-          ))}
+            return (
+              <label className="field" key={field}>
+                <span>
+                  {label} ({unit})
+                </span>
+                <input
+                  required={required}
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={form[field]}
+                  disabled={saving}
+                  onChange={(event) => update(field, event.target.value)}
+                  placeholder={required ? undefined : "Optional"}
+                />
+              </label>
+            );
+          })}
 
           <label className="field">
             <span>Activity</span>
-
             <select
               value={form.activity_level}
-              onChange={(event) =>
-                update("activity_level", event.target.value)
-              }
+              disabled={saving}
+              onChange={(event) => update("activity_level", event.target.value)}
             >
-              <option value="not_specified">
-                Not specified
-              </option>
-              <option value="sedentary">
-                Sedentary
-              </option>
-              <option value="lightly_active">
-                Lightly active
-              </option>
-              <option value="moderately_active">
-                Moderately active
-              </option>
-              <option value="very_active">
-                Very active
-              </option>
-              <option value="extra_active">
-                Extra active
-              </option>
+              {ACTIVITIES.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
             </select>
           </label>
 
           {error && (
-            <div
-              className="inline-error form-grid__full"
-              role="alert"
-            >
+            <div className="inline-error form-grid__full" role="alert">
               {error}
             </div>
           )}
 
           {message && (
-            <div
-              className="inline-success form-grid__full"
-              role="status"
-            >
+            <div className="inline-success form-grid__full" role="status">
               {message}
             </div>
           )}
 
           <div className="form-grid__full">
-            <NeonButton
-              type="submit"
-              disabled={!formReady || saving}
-            >
+            <NeonButton type="submit" disabled={saving}>
               <Save size={16} />
               {saving ? "Saving..." : "Save changes"}
             </NeonButton>

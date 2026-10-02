@@ -42,6 +42,84 @@ async function request(
 
   return data;
 }
+function taskTimeToIso(value) {
+  if (
+    value === undefined ||
+    value === null ||
+    value === ""
+  ) {
+    return null;
+  }
+
+  if (typeof value !== "string") {
+    throw new Error("Invalid task date/time");
+  }
+
+  const text = value.trim();
+
+  // Preserve an already-converted API timestamp.
+  if (
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(text)
+  ) {
+    const date = new Date(text);
+
+    if (
+      !Number.isNaN(date.getTime()) &&
+      date.toISOString() === text
+    ) {
+      return text;
+    }
+
+    throw new Error("Invalid task date/time");
+  }
+
+  // A datetime-local input uses the device's local timezone.
+  const match =
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(
+      text
+    );
+
+  if (!match) {
+    throw new Error("Invalid task date/time");
+  }
+
+  const [
+    ,
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    second = "00"
+  ] = match;
+
+  const date = new Date(text);
+
+  const valid =
+    !Number.isNaN(date.getTime()) &&
+    date.getFullYear() === Number(year) &&
+    date.getMonth() + 1 === Number(month) &&
+    date.getDate() === Number(day) &&
+    date.getHours() === Number(hour) &&
+    date.getMinutes() === Number(minute) &&
+    date.getSeconds() === Number(second);
+
+  if (!valid) {
+    throw new Error(
+      "Invalid local task time. Choose another time."
+    );
+  }
+
+  return date.toISOString();
+}
+
+function prepareTaskPayload(payload) {
+  return {
+    ...payload,
+    due_at: taskTimeToIso(payload.due_at),
+    reminder_at: taskTimeToIso(payload.reminder_at)
+  };
+}
 
 export const api = {
   health() {
@@ -246,37 +324,25 @@ export const api = {
     );
   },
 
-  createTask(
-    userId,
-    listId,
-    payload
-  ) {
-    return request(
-      `/api/users/${userId}/task-lists/${listId}/tasks`,
-      {
-        method: "POST",
-        body:
-          JSON.stringify(
-            payload
-          )
-      }
-    );
-  },
-
-  updateTask(
-    userId,
-    listId,
-    taskId,
-    payload
-  ) {
+  createTask(userId, listId, payload) {
+  return request(
+    `/api/users/${userId}/task-lists/${listId}/tasks`,
+    {
+      method: "POST",
+      body: JSON.stringify(
+        prepareTaskPayload(payload)
+      )
+    }
+  );
+},
+  updateTask(userId, listId, taskId, payload) {
     return request(
       `/api/users/${userId}/task-lists/${listId}/tasks/${taskId}`,
       {
         method: "PUT",
-        body:
-          JSON.stringify(
-            payload
-          )
+        body: JSON.stringify(
+          prepareTaskPayload(payload)
+        )
       }
     );
   },

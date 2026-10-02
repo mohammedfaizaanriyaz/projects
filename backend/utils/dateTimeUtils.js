@@ -1,84 +1,79 @@
-// ============================================================
-// NORMALIZE DATE + TIME
-// Accepts:
-//
-// 2026-08-25T18:30
-//
-// OR
-//
-// 2026-08-25 18:30:00
-//
-// Returns:
-//
-// 2026-08-25 18:30:00
-// ============================================================
-
 function normalizeDateTime(value) {
-  if (value === undefined || value === null || value === "") {
-    return {
-      valid: true,
-      value: null,
-    };
+  if (
+    value === undefined ||
+    value === null ||
+    value === ""
+  ) {
+    return { valid: true, value: null };
   }
 
   if (typeof value !== "string") {
-    return {
-      valid: false,
-      value: null,
-    };
+    return { valid: false, value: null };
   }
 
-  const match = value
-    .trim()
-    .match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/);
+  const text = value.trim();
+
+  // Require a UTC timestamp, identified by the final Z.
+  const match =
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.(\d{3}))?Z$/.exec(
+      text
+    );
 
   if (!match) {
-    return {
-      valid: false,
-      value: null,
-    };
+    return { valid: false, value: null };
   }
 
-  const year = Number(match[1]);
+  const date = new Date(text);
 
-  const month = Number(match[2]);
+  const canonical =
+    text.slice(0, 19) +
+    "." +
+    (match[1] || "000") +
+    "Z";
 
-  const day = Number(match[3]);
-
-  const hour = Number(match[4]);
-
-  const minute = Number(match[5]);
-
-  const second = Number(match[6] || 0);
-
-  const date = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
-
-  const isValid =
-    date.getUTCFullYear() === year &&
-    date.getUTCMonth() === month - 1 &&
-    date.getUTCDate() === day &&
-    date.getUTCHours() === hour &&
-    date.getUTCMinutes() === minute &&
-    date.getUTCSeconds() === second;
-
-  if (!isValid) {
-    return {
-      valid: false,
-      value: null,
-    };
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.getUTCFullYear() < 1000 ||
+    date.toISOString() !== canonical
+  ) {
+    return { valid: false, value: null };
   }
 
-  const normalized =
-    `${match[1]}-${match[2]}-${match[3]} ` +
-    `${match[4]}:${match[5]}:` +
-    `${String(second).padStart(2, "0")}`;
-
+  // MariaDB DATETIME text, with UTC as its agreed meaning.
   return {
     valid: true,
-    value: normalized,
+    value: date
+      .toISOString()
+      .slice(0, 19)
+      .replace("T", " ")
   };
+}
+
+function formatUtcDateTime(value) {
+  if (
+    value === undefined ||
+    value === null ||
+    value === ""
+  ) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  const text = String(value).replace(" ", "T");
+
+  const date = new Date(
+    text.endsWith("Z") ? text : `${text}Z`
+  );
+
+  return Number.isNaN(date.getTime())
+    ? null
+    : date.toISOString();
 }
 
 module.exports = {
   normalizeDateTime,
+  formatUtcDateTime
 };

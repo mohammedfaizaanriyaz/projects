@@ -1,172 +1,216 @@
-import {
-  Activity,
-  Flame,
-  ListChecks,
-  Salad,
-  Scale,
-  Sparkles
-} from "lucide-react";
+import { Activity, Flame, Salad, Scale, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
 
-import {
-  useEffect,
-  useMemo,
-  useState
-} from "react";
+import WeightTrend from "../components/charts/WeightTrend";
+import GlassCard from "../components/ui/GlassCard";
+import NeonButton from "../components/ui/NeonButton";
+import PageHeader from "../components/ui/PageHeader";
+import StatCard from "../components/ui/StatCard";
 
-import WeightTrend
-  from "../components/charts/WeightTrend";
+import { useApp } from "../context/AppContext";
+import { api } from "../services/api";
 
-import GlassCard
-  from "../components/ui/GlassCard";
+const KG_PER_POUND = 0.45359237;
 
-import NeonButton
-  from "../components/ui/NeonButton";
+const MICRO_NUTRIENTS = [
+  ["fiber_g", "Fibre", "g", 1],
+  ["potassium_mg", "Potassium", "mg", 0],
+  ["sodium_mg", "Sodium", "mg", 0],
+];
 
-import PageHeader
-  from "../components/ui/PageHeader";
-
-import StatCard
-  from "../components/ui/StatCard";
-
-import {
-  useApp
-} from "../context/AppContext";
-
-import {
-  api
-} from "../services/api";
-
-function displayNumber(
-  value,
-  decimals = 1
-) {
-  const number =
-    Number(value);
-
-  if (
-    !Number.isFinite(
-      number
-    )
-  ) {
-    return "0";
+function displayNumber(value, decimals = 1) {
+  if (value === null || value === undefined || value === "") {
+    return null;
   }
 
-  return number
-    .toFixed(decimals)
-    .replace(
-      /\.0+$/,
-      ""
-    );
+  const number = Number(value);
+  if (!Number.isFinite(number)) return null;
+
+  return number.toFixed(decimals).replace(/\.0+$/, "");
 }
 
-export default function DashboardPage({
-  onNavigate
-}) {
+function displayWeight(value, unit) {
+  if (value === null || value === undefined || value === "") {
+    return "No record";
+  }
+
+  const kilograms = Number(value);
+
+  if (!Number.isFinite(kilograms) || kilograms <= 0) {
+    return "No record";
+  }
+
+  const displayed = unit === "lb" ? kilograms / KG_PER_POUND : kilograms;
+
+  return `${displayed.toLocaleString(undefined, {
+    maximumFractionDigits: 2,
+  })} ${unit}`;
+}
+
+function nutrientSummary(totals, key, unit, decimals = 1) {
+  const coverage = totals?.coverage?.[key];
+  const formatted = displayNumber(totals?.[key], decimals);
+
+  if (coverage?.status === "empty") {
+    return {
+      value: `0 ${unit}`,
+      helper: "No foods logged",
+    };
+  }
+
+  if (coverage?.status === "unknown") {
+    return {
+      value: "Unknown",
+      helper: `Missing for all ${coverage.missing_count} foods`,
+    };
+  }
+
+  if (formatted === null) {
+    return {
+      value: "Unknown",
+      helper: "Nutrition value unavailable",
+    };
+  }
+
+  if (coverage?.status === "partial") {
+    return {
+      value: `${formatted} ${unit} · Partial`,
+      helper:
+        `Known for ${coverage.known_count} foods; ` +
+        `missing for ${coverage.missing_count}`,
+    };
+  }
+
+  if (coverage?.status === "complete") {
+    return {
+      value: `${formatted} ${unit}`,
+      helper: `Known for all ${coverage.known_count} foods`,
+    };
+  }
+
+  return {
+    value: `${formatted} ${unit}`,
+    helper: "Completeness information unavailable",
+  };
+}
+
+export default function DashboardPage({ onNavigate }) {
   const {
     user,
     selectedProfile,
     weightHistory,
     nutritionTotals,
-    nutritionDate
-  } =
-    useApp();
+    nutritionDate,
+    weightUnit,
+  } = useApp();
 
-  const [
-    taskSummary,
-    setTaskSummary
-  ] =
-    useState({
-      total: 0,
-      completed: 0,
-      lists: 0
-    });
+  const [taskSummary, setTaskSummary] = useState(null);
 
   useEffect(() => {
+    let cancelled = false;
+    const userId = user?.user_id;
+
+    if (!userId) {
+      setTaskSummary(null);
+      return;
+    }
+
+    setTaskSummary({
+      userId,
+      loading: true,
+      error: "",
+      total: 0,
+      completed: 0,
+    });
+
     async function loadTasks() {
-      if (
-        !user?.user_id
-      ) {
-        return;
-      }
-
       try {
-        const lists =
-          await api
-            .getTaskLists(
-              user.user_id
-            );
+        const lists = await api.getTaskLists(userId);
+        if (cancelled) return;
 
-        const taskArrays =
-          await Promise.all(
-            lists.map(
-              (list) =>
-                api.getTasks(
-                  user.user_id,
-                  list.list_id
-                )
-            )
-          );
+        const taskArrays = await Promise.all(
+          lists.map((list) => api.getTasks(userId, list.list_id)),
+        );
 
-        const tasks =
-          taskArrays.flat();
+        if (cancelled) return;
+
+        const tasks = taskArrays.flat();
 
         setTaskSummary({
-          lists:
-            lists.length,
-          total:
-            tasks.length,
-          completed:
-            tasks.filter(
-              (task) =>
-                task
-                  .is_completed
-            ).length
+          userId,
+          loading: false,
+          error: "",
+          total: tasks.length,
+          completed: tasks.filter(
+            (task) => task.is_completed === true || task.is_completed === 1,
+          ).length,
         });
-      } catch {
-        // The dedicated Tasks page
-        // will surface request errors.
+      } catch (error) {
+        if (cancelled) return;
+
+        setTaskSummary({
+          userId,
+          loading: false,
+          error: error.message || "Could not load task totals.",
+          total: 0,
+          completed: 0,
+        });
       }
     }
 
     loadTasks();
+
+    return () => {
+      cancelled = true;
+    };
   }, [user?.user_id]);
 
-  const latestWeight =
-    useMemo(() => {
-      if (
-        weightHistory.length ===
-        0
-      ) {
-        return null;
-      }
+  const records = weightHistory || [];
+  const latestWeight = records.length > 0 ? records[records.length - 1] : null;
 
-      return weightHistory[
-        weightHistory.length -
-          1
-      ];
-    }, [weightHistory]);
+  const unit = weightUnit === "lb" ? "lb" : "kg";
 
-  const totals =
-    nutritionTotals?.totals ||
-    {};
+  // Only display totals that identify the selected date.
+  const receivedTotals = nutritionTotals?.totals;
+  const totalsReady = receivedTotals?.logged_date === nutritionDate;
+  const totals = totalsReady ? receivedTotals : {};
+
+  function summary(key, nutrientUnit, decimals = 1) {
+    if (!totalsReady) {
+      return {
+        value: "—",
+        helper: "Waiting for nutrition totals",
+      };
+    }
+
+    return nutrientSummary(totals, key, nutrientUnit, decimals);
+  }
+
+  const calories = summary("calories", "kcal", 0);
+  const protein = summary("protein_g", "g");
+  const carbs = summary("carbs_g", "g");
+  const fat = summary("fat_g", "g");
+
+  const hasMissingNutrition = Object.values(totals.coverage || {}).some(
+    (coverage) =>
+      coverage.status === "partial" || coverage.status === "unknown",
+  );
+
+  const currentTasks =
+    user?.user_id != null &&
+    Number(taskSummary?.userId) === Number(user.user_id)
+      ? taskSummary
+      : null;
 
   return (
     <>
       <PageHeader
         eyebrow="Command center"
         title={`Welcome, ${user?.name || ""}`}
-        subtitle="Your real profile, weight history, tasks and daily nutrition in one place."
+        subtitle="Your profile, weight history, tasks and selected day's nutrition."
         action={
-          <NeonButton
-            onClick={() =>
-              onNavigate(
-                "nutrition"
-              )
-            }
-          >
-            <Sparkles
-              size={16}
-            />
+          <NeonButton type="button" onClick={() => onNavigate("nutrition")}>
+            <Sparkles size={16} />
             Add food
           </NeonButton>
         }
@@ -174,32 +218,21 @@ export default function DashboardPage({
 
       <section className="hero-strip">
         <div className="hero-strip__copy">
-          <span>
-            VYRA / LIVE DATA
-          </span>
-
+          <span>VYRA / LIVE DATA</span>
           <h2>
             Track the inputs.
             <br />
             See the pattern.
           </h2>
-
           <p>
-            USDA nutrition,
-            profile data, weight
-            history, tasks and
-            reminders now flow
-            through your backend
-            account instead of a
-            localStorage identity.
+            Review your weight trends, logged meals and tasks. Nutrition
+            summaries below are for {nutritionDate}.
           </p>
         </div>
 
-        <div className="hero-orbit">
+        <div className="hero-orbit" aria-hidden="true">
           <div className="hero-orbit__core">
-            <Sparkles
-              size={26}
-            />
+            <Sparkles size={26} />
           </div>
           <span className="orbit orbit--1" />
           <span className="orbit orbit--2" />
@@ -210,119 +243,79 @@ export default function DashboardPage({
       <section className="stats-grid">
         <StatCard
           icon={Flame}
-          label="Today's calories"
-          value={`${displayNumber(totals.calories, 0)} kcal`}
-          helper={`${totals.item_count || 0} logged foods`}
+          label={`Calories · ${nutritionDate}`}
+          value={calories.value}
+          helper={calories.helper}
           accent="orange"
         />
-
         <StatCard
           icon={Salad}
-          label="Protein"
-          value={`${displayNumber(totals.protein_g)} g`}
-          helper="Today's total"
+          label={`Protein · ${nutritionDate}`}
+          value={protein.value}
+          helper={protein.helper}
           accent="violet"
         />
-
         <StatCard
           icon={Activity}
-          label="Carbs"
-          value={`${displayNumber(totals.carbs_g)} g`}
-          helper="Today's total"
+          label={`Carbs · ${nutritionDate}`}
+          value={carbs.value}
+          helper={carbs.helper}
           accent="cyan"
         />
-
         <StatCard
           icon={Salad}
-          label="Fat"
-          value={`${displayNumber(totals.fat_g)} g`}
-          helper="Today's total"
+          label={`Fat · ${nutritionDate}`}
+          value={fat.value}
+          helper={fat.helper}
           accent="pink"
         />
       </section>
 
       <section className="dashboard-grid">
         <div className="dashboard-grid__wide">
-          <WeightTrend
-            records={
-              weightHistory
-            }
-          />
+          <WeightTrend records={records} />
         </div>
 
-        <GlassCard
-          className="daily-nutrition-card"
-          glow
-        >
+        <GlassCard className="daily-nutrition-card" glow>
           <div className="card-heading">
             <div>
-              <span className="eyebrow-small">
-                Daily nutrition
-              </span>
-              <h3>
-                {nutritionDate}
-              </h3>
+              <span className="eyebrow-small">Selected day's nutrition</span>
+              <h3>{nutritionDate}</h3>
             </div>
 
             <button
+              type="button"
               className="text-button"
-              onClick={() =>
-                onNavigate(
-                  "meal-history"
-                )
-              }
+              onClick={() => onNavigate("meal-history")}
             >
               Open log
             </button>
           </div>
 
+          {hasMissingNutrition && (
+            <p>
+              Partial totals include only known values. Unknown means missing
+              information, not zero.
+            </p>
+          )}
+
           <div className="daily-nutrition-matrix">
-            <div>
-              <span>
-                Fibre
-              </span>
-              <strong>
-                {displayNumber(
-                  totals.fiber_g
-                )}{" "}
-                g
-              </strong>
-            </div>
+            {MICRO_NUTRIENTS.map(([key, label, nutrientUnit, decimals]) => {
+              const nutrient = summary(key, nutrientUnit, decimals);
+
+              return (
+                <div key={key}>
+                  <span>{label}</span>
+                  <strong>{nutrient.value}</strong>
+                  <small>{nutrient.helper}</small>
+                </div>
+              );
+            })}
 
             <div>
-              <span>
-                Potassium
-              </span>
+              <span>Logged</span>
               <strong>
-                {displayNumber(
-                  totals.potassium_mg,
-                  0
-                )}{" "}
-                mg
-              </strong>
-            </div>
-
-            <div>
-              <span>
-                Sodium
-              </span>
-              <strong>
-                {displayNumber(
-                  totals.sodium_mg,
-                  0
-                )}{" "}
-                mg
-              </strong>
-            </div>
-
-            <div>
-              <span>
-                Logged
-              </span>
-              <strong>
-                {totals.item_count ||
-                  0}{" "}
-                items
+                {totalsReady ? `${totals.item_count} items` : "—"}
               </strong>
             </div>
           </div>
@@ -331,24 +324,14 @@ export default function DashboardPage({
         <GlassCard>
           <div className="card-heading">
             <div>
-              <span className="eyebrow-small">
-                Selected profile
-              </span>
-              <h3>
-                {
-                  selectedProfile
-                    ?.profile_name
-                }
-              </h3>
+              <span className="eyebrow-small">Selected profile</span>
+              <h3>{selectedProfile?.profile_name || "Loading profile…"}</h3>
             </div>
 
             <button
+              type="button"
               className="text-button"
-              onClick={() =>
-                onNavigate(
-                  "profiles"
-                )
-              }
+              onClick={() => onNavigate("profiles")}
             >
               Manage
             </button>
@@ -356,63 +339,43 @@ export default function DashboardPage({
 
           <div className="feature-list">
             <div>
-              <strong>
-                Latest weight
-              </strong>
-              <span>
-                {latestWeight
-                  ? `${latestWeight.weight_kg} kg`
-                  : "No record"}
-              </span>
+              <strong>Latest weight</strong>
+              <span>{displayWeight(latestWeight?.weight_kg, unit)}</span>
             </div>
 
             <div>
-              <strong>
-                Activity
-              </strong>
+              <strong>Activity</strong>
               <span>
-                {selectedProfile
-                  ?.activity_level
-                  ?.replaceAll(
-                    "_",
-                    " "
-                  ) ||
+                {selectedProfile?.activity_level?.replaceAll("_", " ") ||
                   "Not specified"}
               </span>
             </div>
 
             <div>
-              <strong>
-                Tasks
-              </strong>
+              <strong>Tasks</strong>
               <span>
-                {
-                  taskSummary.completed
-                }
-                /
-                {
-                  taskSummary.total
-                }{" "}
-                completed
+                {!currentTasks || currentTasks.loading
+                  ? "Loading…"
+                  : currentTasks.error
+                    ? "Unavailable"
+                    : `${currentTasks.completed}/${currentTasks.total} completed`}
               </span>
             </div>
           </div>
+
+          {currentTasks?.error && (
+            <div className="inline-error section-gap-top" role="alert">
+              {currentTasks.error}
+            </div>
+          )}
         </GlassCard>
 
         <GlassCard className="dashboard-cta">
-          <Scale
-            size={25}
-          />
-          <h3>
-            One source of truth
-          </h3>
+          <Scale size={25} />
+          <h3>Keep your records together</h3>
           <p>
-            Account identity comes
-            from the secure backend
-            cookie. MariaDB stores
-            your selected profile's
-            weight and daily food
-            history.
+            Add weight entries, review your progress, and keep each profile’s
+            food history organised by date.
           </p>
         </GlassCard>
       </section>

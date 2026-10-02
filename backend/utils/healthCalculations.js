@@ -198,75 +198,80 @@ function calculateBodyFat(
     neckCm,
     hipCm
 ) {
-    if (
-        waistCm === null ||
-        neckCm === null
-    ) {
+    // Accept positive numbers and numeric strings.
+    // Reject missing values, booleans, objects and infinity.
+    function positiveMeasurement(value) {
+        if (typeof value !== "number" && typeof value !== "string") {
+            return null;
+        }
+
+        if (typeof value === "string" && value.trim() === "") {
+            return null;
+        }
+
+        const number = Number(value);
+
+        return Number.isFinite(number) && number > 0
+            ? number
+            : null;
+    }
+
+    if (typeof gender !== "string") {
         return null;
     }
 
-    const normalizedGender =
-        String(gender)
-            .toLowerCase();
+    const normalizedGender = gender.trim().toLowerCase();
+    const height = positiveMeasurement(heightCm);
+    const waist = positiveMeasurement(waistCm);
+    const neck = positiveMeasurement(neckCm);
 
-    let bodyFat;
+    if (height === null || waist === null || neck === null) {
+        return null;
+    }
 
-    if (
-        normalizedGender === "male"
-    ) {
-        if (waistCm <= neckCm) {
+    let density;
+
+    if (normalizedGender === "male") {
+        if (waist <= neck) {
             return null;
         }
 
-        const density =
+        density =
             1.0324 -
-            0.19077 *
-                Math.log10(
-                    waistCm - neckCm
-                ) +
-            0.15456 *
-                Math.log10(
-                    heightCm
-                );
+            0.19077 * Math.log10(waist - neck) +
+            0.15456 * Math.log10(height);
+    } else if (normalizedGender === "female") {
+        const hip = positiveMeasurement(hipCm);
 
-        bodyFat =
-            495 / density - 450;
-
-    } else if (
-        normalizedGender === "female"
-    ) {
-        if (
-            hipCm === null ||
-            waistCm + hipCm <= neckCm
-        ) {
+        if (hip === null || waist + hip <= neck) {
             return null;
         }
 
-        const density =
+        density =
             1.29579 -
-            0.35004 *
-                Math.log10(
-                    waistCm +
-                    hipCm -
-                    neckCm
-                ) +
-            0.221 *
-                Math.log10(
-                    heightCm
-                );
-
-        bodyFat =
-            495 / density - 450;
-
+            0.35004 * Math.log10(waist + hip - neck) +
+            0.221 * Math.log10(height);
     } else {
         return null;
     }
 
-    return roundToTwo(
-        bodyFat
-    );
-}
+    // Avoid division by zero or an invalid calculated density.
+    if (!Number.isFinite(density) || density <= 0) {
+        return null;
+    }
 
+    const bodyFat = 495 / density - 450;
+
+    // Reject impossible results instead of displaying them.
+    if (!Number.isFinite(bodyFat) || bodyFat <= 0 || bodyFat >= 100) {
+        return null;
+    }
+
+    const rounded = Number(bodyFat.toFixed(2));
+
+    // Rounding must not turn a boundary value into 0% or 100%.
+    return rounded > 0 && rounded < 100 ? rounded : null;
+}
 
 // ============================================================
 // EXPORT

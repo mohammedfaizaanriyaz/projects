@@ -11,10 +11,9 @@ const {
 );
 
 const {
-    normalizeDateTime
-} = require(
-    "../utils/dateTimeUtils"
-);
+  normalizeDateTime,
+  formatUtcDateTime
+} = require("../utils/dateTimeUtils");
 
 
 // ============================================================
@@ -22,88 +21,72 @@ const {
 // ============================================================
 
 const formatTask = (task) => {
+  return {
+    ...task,
 
-    return {
-        ...task,
+    is_completed: Boolean(task.is_completed),
 
-        is_completed:
-            Boolean(
-                task.is_completed
-            ),
+    time_limit_minutes:
+      task.time_limit_minutes == null
+        ? null
+        : Number(task.time_limit_minutes),
 
-        time_limit_minutes:
-            task.time_limit_minutes === null
-                ? null
-                : Number(
-                    task.time_limit_minutes
-                )
-    };
+    due_at:
+      formatUtcDateTime(task.due_at),
+
+    reminder_at:
+      formatUtcDateTime(task.reminder_at),
+
+    completed_at:
+      formatUtcDateTime(task.completed_at),
+
+    created_at:
+      formatUtcDateTime(task.created_at),
+
+    updated_at:
+      formatUtcDateTime(task.updated_at)
+  };
 };
-
 
 // ============================================================
 // VALIDATE LIST DATA
 // ============================================================
 
-const validateListData = (
-    body
-) => {
-
-    const {
-        list_name,
-        list_type = "todo"
-    } = body;
-
-
-    if (
-        !list_name ||
-        typeof list_name !== "string" ||
-        !list_name.trim()
-    ) {
-        return {
-            error:
-                "List name is required"
-        };
+// VALIDATE LIST DATA
+const validateListData = (body) => {
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+        return { error: "Request body must be an object" };
     }
 
+    const { list_name, list_type = "todo" } = body;
 
-    const allowedTypes = [
-        "todo",
-        "checklist"
-    ];
-
-
-    if (
-        !allowedTypes.includes(
-            list_type
-        )
-    ) {
-        return {
-            error:
-                "List type must be todo or checklist"
-        };
+    if (typeof list_name !== "string" || !list_name.trim()) {
+        return { error: "List name must be nonempty text" };
     }
 
+    const listName = list_name.trim();
+
+    if (Array.from(listName).length > 120) {
+        return { error: "List name cannot exceed 120 characters" };
+    }
+
+    if (!["todo", "checklist"].includes(list_type)) {
+        return { error: "List type must be todo or checklist" };
+    }
 
     return {
         data: {
-            listName:
-                list_name.trim(),
-
-            listType:
-                list_type
+            listName,
+            listType: list_type
         }
     };
 };
 
-
-// ============================================================
 // VALIDATE TASK DATA
-// ============================================================
-
-const validateTaskData = (
-    body
-) => {
+const validateTaskData = (body) => {
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+        return { error: "Request body must be an object" };
+    }
 
     const {
         title,
@@ -113,117 +96,99 @@ const validateTaskData = (
         reminder_at = null
     } = body;
 
-
-    if (
-        !title ||
-        typeof title !== "string" ||
-        !title.trim()
-    ) {
-        return {
-            error:
-                "Task title is required"
-        };
+    if (typeof title !== "string" || !title.trim()) {
+        return { error: "Task title must be nonempty text" };
     }
 
+    const cleanedTitle = title.trim();
 
-    if (
-        typeof description !== "string"
-    ) {
-        return {
-            error:
-                "Description must be text"
-        };
+    if (Array.from(cleanedTitle).length > 200) {
+        return { error: "Task title cannot exceed 200 characters" };
     }
 
+    if (typeof description !== "string") {
+        return { error: "Description must be text" };
+    }
+
+    const cleanedDescription = description.trim();
+
+    // TEXT is limited by bytes, so emojis can use more space than letters.
+    if (Buffer.byteLength(cleanedDescription, "utf8") > 65535) {
+        return { error: "Description is too long; please shorten it" };
+    }
 
     let timeLimitMinutes = null;
 
+    const blankTimeLimit =
+        time_limit_minutes === null ||
+        (
+            typeof time_limit_minutes === "string" &&
+            time_limit_minutes.trim() === ""
+        );
 
-    if (
-        time_limit_minutes !== null &&
-        time_limit_minutes !== ""
-    ) {
-
-        timeLimitMinutes =
-            Number(
-                time_limit_minutes
-            );
-
+    if (!blankTimeLimit) {
+        // Check the type before converting: true must not become 1.
+        if (
+            typeof time_limit_minutes !== "number" &&
+            typeof time_limit_minutes !== "string"
+        ) {
+            return { error: "Time limit must be a positive whole number" };
+        }
 
         if (
-            !Number.isInteger(
-                timeLimitMinutes
-            ) ||
-            timeLimitMinutes <= 0
+            typeof time_limit_minutes === "string" &&
+            !/^\d+$/.test(time_limit_minutes.trim())
+        ) {
+            return { error: "Time limit must contain whole-number digits" };
+        }
+
+        timeLimitMinutes = Number(time_limit_minutes);
+
+        if (
+            !Number.isSafeInteger(timeLimitMinutes) ||
+            timeLimitMinutes < 1 ||
+            timeLimitMinutes > 2147483647
         ) {
             return {
-                error:
-                    "Time limit must be a positive whole number"
+                error: "Time limit must be a whole number from 1 to 2147483647"
             };
         }
     }
 
-
-    const dueResult =
-        normalizeDateTime(
-            due_at
-        );
-
+    const dueResult = normalizeDateTime(due_at);
 
     if (!dueResult.valid) {
         return {
-            error:
-                "Due date must be a valid date and time"
+            error: "Due date must be a valid UTC date and time ending in Z"
         };
     }
 
-
-    const reminderResult =
-        normalizeDateTime(
-            reminder_at
-        );
-
+    const reminderResult = normalizeDateTime(reminder_at);
 
     if (!reminderResult.valid) {
         return {
-            error:
-                "Reminder must be a valid date and time"
+            error: "Reminder must be a valid UTC date and time ending in Z"
         };
     }
-
 
     if (
         dueResult.value &&
         reminderResult.value &&
-        reminderResult.value >
-        dueResult.value
+        reminderResult.value > dueResult.value
     ) {
-        return {
-            error:
-                "Reminder cannot be after the task deadline"
-        };
+        return { error: "Reminder cannot be after the task deadline" };
     }
-
 
     return {
         data: {
-            title:
-                title.trim(),
-
-            description:
-                description.trim(),
-
+            title: cleanedTitle,
+            description: cleanedDescription,
             timeLimitMinutes,
-
-            dueAt:
-                dueResult.value,
-
-            reminderAt:
-                reminderResult.value
+            dueAt: dueResult.value,
+            reminderAt: reminderResult.value
         }
     };
 };
-
 
 // ============================================================
 // CREATE TASK LIST
@@ -1120,12 +1085,14 @@ const getDueRemindersByUser = async (
                 );
 
 
-        return res
-            .status(200)
-            .json(
-                reminders
-            );
+     return res.status(200).json(
+  reminders.map((reminder) => ({
+    ...reminder,
 
+    reminder_at:
+      formatUtcDateTime(reminder.reminder_at)
+  }))
+);
     } catch (error) {
         next(error);
     }

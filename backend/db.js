@@ -12,8 +12,8 @@ const pool = mariadb.createPool({
   connectionLimit: 5,
   acquireTimeout: 10000,
 
-  // Preserve database dates as strings.
-  dateStrings: true
+  dateStrings: true,
+  timezone: "+00:00"
 });
 
 module.exports = pool;

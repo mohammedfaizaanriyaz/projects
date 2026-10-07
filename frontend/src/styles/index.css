@@ -432,7 +432,8 @@ select option { background: #0b1020; }
 }
 
 @media (max-width: 900px) {
-  .sidebar { width: 260px; transform: translateX(-105%); transition: .25s ease; }
+  /* Visibility must change immediately so the opened menu can receive focus. */
+  .sidebar { width: 260px; transform: translateX(-105%); transition: transform .25s ease; }
   .sidebar.is-open { transform: translateX(0); }
   .sidebar__close,.mobile-menu-button { display: grid; }
   .sidebar-backdrop {

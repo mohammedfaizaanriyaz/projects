@@ -43,6 +43,9 @@ test("all page URLs render on desktop and mobile without runtime errors or overf
         const accessibility = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
         expect(accessibility.violations, `Accessibility of ${route}`).toEqual([]);
       }
+      if (["dashboard", "tasks", "nutrition"].includes(route)) {
+        await page.screenshot({ path: `test-results/${route}-${width}.png`, fullPage: true, animations: "disabled" });
+      }
     }
   }
   expect(errors).toEqual([]);
@@ -55,10 +58,11 @@ test("mobile navigation traps focus, closes on Escape and restores the opener", 
   const opener = page.getByRole("button", { name: "Open navigation" });
   await opener.click();
   await expect(page.getByRole("dialog", { name: "Main navigation" })).toBeVisible();
-  await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute("aria-label"))).toBe("Close navigation");
   await expect(page.getByRole("button", { name: "Close navigation" })).toBeFocused();
   await page.keyboard.press("Shift+Tab");
   await expect(page.getByRole("button", { name: "Logout", exact: true })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("button", { name: "Close navigation" })).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(opener).toBeFocused();
   await expect(opener).toHaveAttribute("aria-expanded", "false");

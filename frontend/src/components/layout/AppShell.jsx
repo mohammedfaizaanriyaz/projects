@@ -19,7 +19,8 @@ export default function AppShell({ activePage, onNavigate, children }) {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const controls = () => [...sidebarRef.current.querySelectorAll("button:not(:disabled), select, a[href]")].filter((element) => element.getClientRects().length);
-    controls()[0]?.focus();
+    // Wait until the browser applies the removed inert state before focusing.
+    const focusFrame = requestAnimationFrame(() => controls()[0]?.focus({ preventScroll: true }));
     const handleKey = (event) => {
       if (event.key === "Escape") { event.preventDefault(); setMobileOpen(false); }
       if (event.key === "Tab") {
@@ -30,7 +31,14 @@ export default function AppShell({ activePage, onNavigate, children }) {
       }
     };
     document.addEventListener("keydown", handleKey);
-    return () => { document.body.style.overflow = previousOverflow; document.removeEventListener("keydown", handleKey); previous?.focus(); };
+    return () => {
+      cancelAnimationFrame(focusFrame);
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKey);
+      requestAnimationFrame(() => {
+        if (previous?.isConnected && !previous.closest("[inert]")) previous.focus({ preventScroll: true });
+      });
+    };
   }, [mobileOpen, isMobile]);
   return (
     <div className="app-shell">

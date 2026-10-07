@@ -55,12 +55,17 @@ test("mobile navigation traps focus, closes on Escape and restores the opener", 
   const opener = page.getByRole("button", { name: "Open navigation" });
   await opener.click();
   await expect(page.getByRole("dialog", { name: "Main navigation" })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute("aria-label"))).toBe("Close navigation");
   await expect(page.getByRole("button", { name: "Close navigation" })).toBeFocused();
   await page.keyboard.press("Shift+Tab");
   await expect(page.getByRole("button", { name: "Logout", exact: true })).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(opener).toBeFocused();
   await expect(opener).toHaveAttribute("aria-expanded", "false");
+  await opener.click();
+  await page.screenshot({ path: "test-results/mobile-menu-open.png", fullPage: true, animations: "disabled" });
+  await page.getByRole("button", { name: "Close navigation" }).click();
+  await expect(opener).toBeFocused();
   await page.screenshot({ path: "test-results/mobile-settings.png", fullPage: true });
 });
 

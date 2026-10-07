@@ -85,7 +85,7 @@ export default function WeightTrend({ records = [] }) {
           <h3>Weight trend ({unit})</h3>
         </div>
 
-        <span className="metric-chip">{records.length > 500 ? "Latest 500 of " + records.length : data.length} records</span>
+        <span className="metric-chip">{records.length > 500 ? `Latest 500 of ${records.length} records` : `${data.length} record${data.length === 1 ? "" : "s"}`}</span>
       </div>
 
       {data.length === 0 ? (

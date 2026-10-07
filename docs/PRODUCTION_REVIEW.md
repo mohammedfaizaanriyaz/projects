@@ -12,10 +12,11 @@ The application remains a React/Vite frontend with an Express/MariaDB backend;
 its visual direction and existing data model are preserved. There is no ORM,
 background worker, or automatic database migration.
 
-**Deployment is gated on manual database preparation, real credentials,
-infrastructure setup, and successful browser/staging acceptance.** A successful
-build and mocked tests do not prove that a particular live database, USDA key,
-TLS proxy, or hosting environment is configured correctly.
+**Application checks pass; deployment is gated on manual database preparation,
+real credentials, infrastructure setup, and real-service staging acceptance.**
+The browser suite and container build passed in GitHub Actions. These checks do
+not prove that a particular live database, USDA key, TLS proxy, or hosting
+environment is configured correctly.
 
 ## Major findings and implemented changes
 
@@ -63,8 +64,12 @@ credentials. Exact steps and model limitations are in
 
 ## Verification evidence
 
-Run all checks from the repository root. Results below distinguish local
-verification from external services that were unavailable.
+Run all checks from the repository root. Results below distinguish local/CI
+verification from external services that were unavailable. The full pipeline
+passed for application commit `925e94a03a4993e96e7cad9781657eba5878ede4` in
+[GitHub Actions run 37672592173](https://github.com/mohammedfaizaanriyaz/projects/actions/runs/37672592173).
+Require the same workflow to pass for the final release commit, including the
+subsequent small menu-closing and record-label corrections.
 
 | Check | Command | Result and limits |
 | --- | --- | --- |
@@ -76,17 +81,21 @@ verification from external services that were unavailable.
 | Frontend tests | `npm run test -w frontend` | 9 tests passed: selection/date races, refresh continuity, failed logout, stale 401s, request contract/timestamps, reminder acknowledgement races |
 | Production build | `npm run build` | Passed; lazy chunks replace the original oversized single bundle; initial entry approximately 262 kB before compression |
 | Production process/HTTP | `npm run smoke:production` | Passed: actual server entry point, HTML/assets, API errors, security headers, readiness 503 when DB is unavailable, liveness 200, graceful SIGTERM; uses deliberately unreachable test-only DB settings |
-| Browser flows/accessibility | `npm run test:e2e` | Local environment blocked: The available Chromium binary terminates with SIGTRAP/SIGSEGV before page creation. Browser cases were added to CI but are not a local pass. Visual/responsive/accessibility acceptance remains a release gate |
+| Browser flows/accessibility | `npm run test:e2e` | All 7 tests passed in Chromium on GitHub Actions: session refresh/logout, all 14 routes at desktop/mobile widths, mobile keyboard focus/Escape, weight save/delete, unit preferences, task editing/list renaming, and nutrition calculation/logging. All 14 desktop routes passed automated WCAG 2 A/AA and 2.1 AA axe checks. Database/USDA adapters are test-only mocks |
+| Visual review | CI screenshots at 1440 px and 375 px | Reviewed dashboard, tasks, nutrition, mobile menu, and settings. No horizontal overflow in the tested routes. Menu focus and closing transitions were corrected; existing design preserved. This is not a substitute for real-device/staging acceptance |
 | Whitespace/diff | `git diff --check` | Passed |
 | SQL preservation | SHA-256 comparison against original snapshot | All three project SQL files unchanged |
 | Live database | `npm run check:db -w backend` | Not run against a real database: no authorized runtime credentials/instance available. Read-only schema probes were tested against the committed SQL definitions |
 | Live USDA | Staging search/calculation | Not verified with a real API key; no key was available |
-| Docker/hosting | `docker build -t vyra:new-ui .` and HTTPS staging acceptance | Docker daemon/production infrastructure unavailable locally; container build is a CI gate and deployment guide documents staging acceptance |
+| Docker image | `docker build -t vyra:ci .` | Passed in GitHub Actions, including production-only backend dependency installation and frontend build; no local Docker daemon was available |
+| Hosting | HTTPS staging acceptance | Not performed: no production host, domain/TLS setup, or runtime secrets were supplied |
 
 An npm warning about the execution environment's `http-proxy` setting is not a
-repository configuration error. There is no TypeScript project, so no separate
-type-check result is claimed. No full UI, real MariaDB transaction, real USDA,
-load test, or deployed-infrastructure success is implied by the mocked checks.
+repository configuration error. The local Chromium binary terminated with
+SIGTRAP/SIGSEGV before page creation, so browser evidence comes from the working
+GitHub Actions runner. There is no TypeScript project, so no separate type-check
+result is claimed. No real MariaDB transaction, real USDA, load test, or
+deployed-infrastructure success is implied by the mocked checks.
 
 ## Security, performance, and maintainability
 
@@ -120,8 +129,8 @@ migration were intentionally avoided.
 
 ## Release order and remaining manual gates
 
-1. Review the final code/CI results; complete browser tests and visual/mobile
-   acceptance on a functioning browser runner.
+1. Review the final code and passing CI results; the automated browser suite and
+   screenshot review are complete. Retain the workflow as a release gate.
 2. Rotate any used committed/shared credentials and prepare MariaDB manually
    using the database guide, including a restore-tested backup.
 3. Supply real server-only secrets, verify `check:db`, and configure the chosen

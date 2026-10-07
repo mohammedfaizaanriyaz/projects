@@ -70,6 +70,7 @@ test("mobile navigation traps focus, closes on Escape and restores the opener", 
   await page.screenshot({ path: "test-results/mobile-menu-open.png", fullPage: true, animations: "disabled" });
   await page.getByRole("button", { name: "Close navigation" }).click();
   await expect(opener).toBeFocused();
+  expect(await page.locator("#app-sidebar .nav-item").first().evaluate((button) => getComputedStyle(button).visibility)).toBe("hidden");
   await page.screenshot({ path: "test-results/mobile-settings.png", fullPage: true });
 });
 

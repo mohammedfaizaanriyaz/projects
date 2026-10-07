@@ -125,7 +125,8 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 .nav { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
 .nav-item,.nav-subitem {
   width: 100%; border: 0; cursor: pointer; text-align: left; display: flex; align-items: center;
-  gap: 10px; color: var(--muted); background: transparent; transition: .2s ease;
+  gap: 10px; color: var(--muted); background: transparent;
+  transition: color .2s ease, background-color .2s ease, border-color .2s ease, box-shadow .2s ease;
 }
 .nav-item { min-height: 39px; padding: 0 11px; border-radius: 11px; font-size: 12px; font-weight: 650; }
 .nav-item span { flex: 1; }

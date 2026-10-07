@@ -1,4 +1,4 @@
-import { Plus, Scale } from "lucide-react";
+import { Plus, Scale, Trash2 } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import WeightTrend from "../components/charts/WeightTrend";
 import GlassCard from "../components/ui/GlassCard";
@@ -81,6 +81,8 @@ export default function WeightPage() {
     selectedProfile,
     weightHistory,
     addWeight,
+    deleteWeight,
+    dataStatus,
     weightUnit,
     lengthUnit,
   } = useApp();
@@ -104,6 +106,8 @@ export default function WeightPage() {
       profile={selectedProfile}
       records={weightHistory || []}
       addWeight={addWeight}
+      deleteWeight={deleteWeight}
+      historyStatus={dataStatus.weight}
       weightUnit={weightUnit === "lb" ? "lb" : "kg"}
       lengthUnit={lengthUnit === "in" ? "in" : "cm"}
     />
@@ -114,9 +118,12 @@ function WeightWorkspace({
   profile,
   records,
   addWeight,
+  deleteWeight,
+  historyStatus,
   weightUnit,
   lengthUnit,
 }) {
+  const [visibleRecords, setVisibleRecords] = useState(100);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(() => emptyForm(weightUnit, lengthUnit));
   const [error, setError] = useState("");
@@ -217,6 +224,20 @@ function WeightWorkspace({
     }
   }
 
+  async function removeRecord(record) {
+    if (locked.current || !window.confirm(`Delete the weight record for ${record.recorded_date}? You can add a corrected entry afterwards.`)) return;
+    const generation = lifecycle.current;
+    locked.current = true; setSaving(true); setError(""); setSuccess("");
+    try {
+      await deleteWeight(record.weight_id);
+      if (lifecycle.current === generation) setSuccess("Weight record deleted.");
+    } catch (error) {
+      if (lifecycle.current === generation) setError(error.message);
+    } finally {
+      if (lifecycle.current === generation) { locked.current = false; setSaving(false); }
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -237,6 +258,7 @@ function WeightWorkspace({
         </div>
       )}
 
+      {error && !showForm && <div className="inline-error" role="alert">{error}</div>}
       {showForm && (
         <GlassCard className="section-gap" glow>
           <form className="form-grid" onSubmit={submit}>
@@ -258,8 +280,8 @@ function WeightWorkspace({
               <input
                 required
                 type="date"
-                min="1000-01-01"
-                max="9999-12-31"
+                min={profile.dob || "1000-01-01"}
+                max={localToday()}
                 value={form.recorded_date}
                 disabled={saving}
                 onChange={(event) =>
@@ -341,31 +363,21 @@ function WeightWorkspace({
           </div>
 
           {records.length === 0 ? (
-            <div className="empty-state">No records yet.</div>
+            <div className="empty-state" role="status">{historyStatus === "ready" ? "No records yet." : historyStatus === "error" ? "Weight history could not be loaded. Use Retry loading above." : "Loading weight history…"}</div>
           ) : (
-            <div className="data-table">
-              <div className="data-table__head data-table__head--four">
-                <span>Date</span>
-                <span>Weight ({weightUnit})</span>
-                <span>BMI</span>
-                <span>Body fat</span>
-              </div>
-
-              {[...records].reverse().map((record) => (
-                <div
-                  className="data-table__row data-table__row--four"
-                  key={record.weight_id}
-                >
-                  <span>{String(record.recorded_date).slice(0, 10)}</span>
-                  <strong>{displayWeight(record.weight_kg, weightUnit)}</strong>
-                  <span>{record.bmi ?? "—"}</span>
-                  <span>
-                    {record.body_fat_percentage != null
-                      ? `${record.body_fat_percentage}%`
-                      : "—"}
-                  </span>
-                </div>
-              ))}
+            <div className="table-scroll">
+              <table className="history-table">
+                <caption className="sr-only">Weight records for {profile.profile_name}</caption>
+                <thead><tr><th scope="col">Date</th><th scope="col">Weight ({weightUnit})</th><th scope="col">BMI</th><th scope="col">Body fat</th><th scope="col">Actions</th></tr></thead>
+                <tbody>{[...records].reverse().slice(0, visibleRecords).map((record) => <tr key={record.weight_id}>
+                  <td>{String(record.recorded_date).slice(0, 10)}</td>
+                  <td>{displayWeight(record.weight_kg, weightUnit)}</td>
+                  <td>{record.bmi ?? "—"}</td>
+                  <td>{record.body_fat_percentage != null ? `${record.body_fat_percentage}%` : "—"}</td>
+                  <td><button className="icon-button" disabled={saving} aria-label={`Delete weight on ${record.recorded_date}`} onClick={() => removeRecord(record)}><Trash2 size={15} /></button></td>
+                </tr>)}</tbody>
+              </table>
+              {records.length > visibleRecords && <button className="text-button" onClick={() => setVisibleRecords((count) => count + 100)}>Show 100 more records</button>}
             </div>
           )}
         </GlassCard>

@@ -44,17 +44,31 @@ function positiveQuantity(quantity) {
         (typeof quantity !== "number" && typeof quantity !== "string") ||
         (typeof quantity === "string" && !quantity.trim())
     ) {
-        throw inputError("Quantity must be a positive number");
+        throw inputError("Quantity must be 0.001 to 999999999.999 with at most 3 decimal places");
     }
 
     const number = Number(quantity);
 
-    if (!Number.isFinite(number) || number <= 0) {
-        throw inputError("Quantity must be a positive number");
+    if (!Number.isFinite(number) || number < 0.001 || number > 999999999.999 ||
+        Math.abs(number * 1000 - Math.round(number * 1000)) > 0.0001) {
+        throw inputError("Quantity must be 0.001 to 999999999.999 with at most 3 decimal places");
     }
 
     return number;
 }
+
+function boundedGrams(value) {
+    if (!Number.isFinite(value) || value < 0.001 || value > 999999999.999) {
+        throw inputError("Converted weight must be between 0.001 and 999999999.999 grams");
+    }
+    return Number(value.toFixed(3));
+}
+
+const canonicalUnit = (value) => {
+    const text = normalizeUnit(value);
+    const aliases = { tablespoon: "tbsp", tablespoons: "tbsp", teaspoon: "tsp", teaspoons: "tsp", cups: "cup", pieces: "piece", slices: "slice", eggs: "egg" };
+    return aliases[text] || text;
+};
 
 const convertMassToGrams = (quantity, unit) => {
     const numericQuantity = positiveQuantity(quantity);
@@ -64,7 +78,7 @@ const convertMassToGrams = (quantity, unit) => {
         throw inputError("Unsupported mass unit");
     }
 
-    return numericQuantity * MASS_UNIT_TO_GRAMS[normalizedUnit];
+    return boundedGrams(numericQuantity * MASS_UNIT_TO_GRAMS[normalizedUnit]);
 };
 
 // USDA PORTION OPTIONS
@@ -107,6 +121,8 @@ const getPortionOptions = (food) => {
             key: `portion:${portion.id ?? index}`,
             label,
             gramWeight: Number(gramWeight.toFixed(3)),
+            amount: Number.isFinite(amount) && amount > 0 ? amount : null,
+            measureUnit: canonicalUnit(measureName),
             source: "USDA food portion"
         });
     });
@@ -156,9 +172,7 @@ const resolveWeightInGrams = (food, quantity, unit) => {
     );
 
     if (exactOption) {
-        return Number(
-            (numericQuantity * exactOption.gramWeight).toFixed(3)
-        );
+        return boundedGrams(numericQuantity * exactOption.gramWeight);
     }
 
     if (normalizedUnit === "serving") {
@@ -167,31 +181,12 @@ const resolveWeightInGrams = (food, quantity, unit) => {
         );
     }
 
-    const aliases = {
-        piece: ["piece", "item", "each", "whole"],
-        unit: ["piece", "item", "each", "whole"],
-        whole: ["whole", "piece", "item"],
-        slice: ["slice"],
-        egg: ["egg"],
-        banana: ["banana"]
-    };
-
-    const words = Object.prototype.hasOwnProperty.call(
-        aliases,
-        normalizedUnit
-    )
-        ? aliases[normalizedUnit]
-        : [normalizedUnit];
-
-    const matches = options.filter((option) => {
-        const label = normalizeUnit(option.label);
-        return words.some((word) => label.includes(word));
-    });
-
+    // Only match an explicit USDA measure and divide by its reported amount.
+    // Description substring guesses can confuse "2 tbsp" with one tablespoon.
+    const matches = options.filter((option) => option.amount &&
+        option.measureUnit === canonicalUnit(normalizedUnit));
     if (matches.length === 1) {
-        return Number(
-            (numericQuantity * matches[0].gramWeight).toFixed(3)
-        );
+        return boundedGrams(numericQuantity * matches[0].gramWeight / matches[0].amount);
     }
 
     const available = options.map(

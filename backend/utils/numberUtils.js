@@ -13,7 +13,7 @@ function isPositiveNumber(value) {
 // ============================================================
 
 function isValidId(value) {
-  return Number.isInteger(value) && value > 0;
+  return Number.isSafeInteger(value) && value > 0 && value <= 2147483647;
 }
 
 // ============================================================

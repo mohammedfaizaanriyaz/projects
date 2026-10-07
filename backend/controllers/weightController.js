@@ -1,5 +1,6 @@
 const weightService = require("../services/weightService");
 const { numberOrNull } = require("../utils/numberUtils");
+const { observationDate } = require("../utils/calendarDate");
 
 const {
     calculateBMI,
@@ -70,34 +71,6 @@ function validateMeasurement(value, label, optional = false) {
     return number;
 }
 
-function validateRecordedDate(value) {
-    if (value === undefined || value === null || value === "") {
-        return new Date().toISOString().slice(0, 10);
-    }
-
-    if (typeof value !== "string") {
-        invalid("Recorded date must be a YYYY-MM-DD date");
-    }
-
-    const text = value.trim();
-
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) {
-        invalid("Recorded date must be a YYYY-MM-DD date");
-    }
-
-    const date = new Date(`${text}T00:00:00.000Z`);
-
-    if (
-        Number.isNaN(date.getTime()) ||
-        Number(text.slice(0, 4)) < 1000 ||
-        date.toISOString().slice(0, 10) !== text
-    ) {
-        invalid("Recorded date must be a valid calendar date");
-    }
-
-    return text;
-}
-
 function storedCalculation(value) {
     if (
         typeof value !== "number" ||
@@ -133,7 +106,7 @@ const createWeightRecord = async (req, res, next) => {
             recorded_date
         } = req.body;
 
-        const recordedDate = validateRecordedDate(recorded_date);
+        const recordedDate = observationDate(recorded_date, null, req.body.time_zone);
         const weight = validateMeasurement(weight_kg, "Weight");
 
         // Use only measurements supplied for this entry.
@@ -155,6 +128,7 @@ const createWeightRecord = async (req, res, next) => {
         }
 
         const height = numberOrNull(profile.height_cm);
+        observationDate(recordedDate, profile.dob, req.body.time_zone);
 
         // The current schema has no historical height snapshot.
         const bmi = height !== null && height > 0
@@ -232,5 +206,14 @@ const getWeightHistory = async (req, res, next) => {
 
 module.exports = {
     createWeightRecord,
-    getWeightHistory
+    getWeightHistory,
+    async deleteWeightRecord(req, res, next) {
+        try {
+            const profileId = validateProfileId(req.params.profileId);
+            const weightId = validateProfileId(req.params.weightId);
+            const removed = await weightService.deleteWeightRecord(profileId, weightId);
+            if (!removed) return res.status(404).json({ error: "Weight record not found" });
+            return res.json({ message: "Weight record deleted" });
+        } catch (error) { return handleError(error, res, next); }
+    }
 };

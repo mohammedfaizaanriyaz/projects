@@ -1,78 +1,20 @@
-const profileService =
-    require(
-        "../services/profileService"
-    );
+const profileService = require("../services/profileService");
+const { isValidId } = require("../utils/numberUtils");
 
-const requireProfileOwnership =
-    async (
-        req,
-        res,
-        next
-    ) => {
-        try {
+async function requireProfileOwnership(req, res, next) {
+  try {
+    const profileId = Number(req.params.profileId);
+    if (!isValidId(profileId)) return res.status(400).json({ error: "Invalid profile ID" });
+    const profile = await profileService.getProfileById(profileId);
+    if (!profile) return res.status(404).json({ error: "Profile not found" });
+    if (Number(profile.user_id) !== Number(req.user?.userId)) {
+      return res.status(403).json({ error: "You are not allowed to access this profile" });
+    }
+    req.ownedProfile = profile;
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
 
-            const profileId =
-                Number(
-                    req.params.profileId
-                );
-
-            if (
-                !Number.isInteger(
-                    profileId
-                ) ||
-                profileId <= 0
-            ) {
-                return res
-                    .status(400)
-                    .json({
-                        error:
-                            "Invalid profile ID"
-                    });
-            }
-
-            const profile =
-                await profileService
-                    .getProfileById(
-                        profileId
-                    );
-
-            if (!profile) {
-                return res
-                    .status(404)
-                    .json({
-                        error:
-                            "Profile not found"
-                    });
-            }
-
-            const profileOwnerId =
-                Number(
-                    profile.user_id
-                );
-
-            const loggedInUserId =
-                Number(
-                    req.user?.userId
-                );
-
-            if (
-                profileOwnerId !==
-                loggedInUserId
-            ) {
-                return res
-                    .status(403)
-                    .json({
-                        error:
-                            "You are not allowed to access this profile"
-                    });
-            }
-
-            next();
-
-        } catch (error) {
-            next(error);
-        }
-    };
-
-module.exports =
-    requireProfileOwnership;
+module.exports = requireProfileOwnership;

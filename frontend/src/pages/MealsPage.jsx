@@ -91,6 +91,7 @@ export default function MealsPage() {
   function addIngredient(event) {
     event.preventDefault();
 
+    if (ingredients.length >= 10) { setError("Maximum 10 ingredients per calculation."); return; }
     const food = ingredient.food.trim();
     const quantity = Number(ingredient.quantity);
 
@@ -99,8 +100,8 @@ export default function MealsPage() {
       return;
     }
 
-    if (!Number.isFinite(quantity) || quantity <= 0) {
-      setError("Enter a quantity greater than zero.");
+    if (!Number.isFinite(quantity) || quantity < 0.001 || quantity > 999999999.999) {
+      setError("Enter a quantity from 0.001 to 999999999.999.");
       return;
     }
 
@@ -192,6 +193,7 @@ export default function MealsPage() {
           <form className="ingredient-form" onSubmit={addIngredient}>
             <input
               required
+              maxLength={120}
               aria-label="Ingredient name"
               value={ingredient.food}
               onChange={(event) =>
@@ -204,8 +206,8 @@ export default function MealsPage() {
               required
               aria-label="Ingredient quantity"
               type="number"
-              min="0.01"
-              step="0.01"
+              min="0.001"
+              step="0.001"
               value={ingredient.quantity}
               onChange={(event) =>
                 updateIngredient("quantity", event.target.value)
@@ -232,7 +234,7 @@ export default function MealsPage() {
           </form>
 
           <p>
-            Only ingredients added to the list are included in the totals.
+            Add up to 10 ingredients. This calculator does not save a recipe; log foods using Nutrition Calculator.
           </p>
 
           <div className="meal-list">
@@ -339,7 +341,10 @@ export default function MealsPage() {
                         <ul>
                           {alternatives.map((alternative) => (
                             <li key={alternative.fdcId}>
-                              {alternative.description}
+                              <button type="button" className="text-button" onClick={() => {
+                                invalidateResult();
+                                setIngredients((current) => current.map((entry, position) => position === index ? { ...entry, food: alternative.description, fdcId: alternative.fdcId } : entry));
+                              }}>Use {alternative.description}</button>
                               {" · FDC ID: "}
                               {alternative.fdcId}
                               {alternative.brandName
@@ -355,9 +360,7 @@ export default function MealsPage() {
               })}
 
               <p>
-                If a match is wrong, remove the ingredient and add a more
-                specific name, then recalculate. You can also use Nutrition
-                Calculator to select an exact food and log it individually.
+                Choose an alternative match and recalculate if needed. You can also select an exact food in Nutrition Calculator and log it individually.
               </p>
             </div>
           )}

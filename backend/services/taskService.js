@@ -521,7 +521,19 @@ const markReminderAsSent = async (
 // EXPORT SERVICES
 // ============================================================
 
+const getTaskSummary = async (userId) => {
+    const rows = await pool.query(`
+        SELECT COUNT(t.task_id) AS total,
+               COALESCE(SUM(t.is_completed = 1), 0) AS completed
+        FROM task_lists l LEFT JOIN tasks t ON t.list_id = l.list_id
+        WHERE l.user_id = ?`, [userId]);
+    const total = Number(rows[0].total);
+    const completed = Number(rows[0].completed);
+    return { total, completed, pending: total - completed };
+};
+
 module.exports = {
+    getTaskSummary,
     createTaskList,
     getTaskListsByUser,
     findTaskListById,

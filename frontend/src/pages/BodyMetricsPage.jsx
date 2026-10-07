@@ -125,8 +125,8 @@ export default function BodyMetricsPage() {
             the same.
           </p>
           <p>
-            A BMI category appears only when supplied by the backend. Missing
-            calculations are shown as “—”.
+            Adult BMI categories apply from age 20. Missing calculations are
+            shown as “—”. These estimates are not a medical diagnosis.
           </p>
         </div>
       </GlassCard>

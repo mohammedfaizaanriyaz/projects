@@ -16,11 +16,15 @@ import {
   useApp
 } from "../context/AppContext";
 
+import { localToday, storedMeasurement } from "../utils/units";
+
 export default function ProfileSetupPage() {
   const {
     user,
     createProfile,
-    logout
+    logout,
+    weightUnit,
+    lengthUnit
   } =
     useApp();
 
@@ -69,6 +73,7 @@ export default function ProfileSetupPage() {
     event
   ) {
     event.preventDefault();
+    if (busy) return;
 
     try {
       setBusy(true);
@@ -77,16 +82,11 @@ export default function ProfileSetupPage() {
       await createProfile({
         ...form,
         height_cm:
-          Number(
-            form.height_cm
-          ),
+          storedMeasurement(form.height_cm, lengthUnit),
         current_weight_kg:
           form
             .current_weight_kg
-            ? Number(
-                form
-                  .current_weight_kg
-              )
+            ? storedMeasurement(form.current_weight_kg, weightUnit)
             : null
       });
     } catch (error) {
@@ -130,11 +130,7 @@ export default function ProfileSetupPage() {
         </h1>
 
         <p>
-          These are the minimum
-          fields your existing
-          backend requires. Other
-          measurements remain
-          optional.
+          Start with your basic details. You can add other measurements later.
         </p>
 
         <form
@@ -149,6 +145,7 @@ export default function ProfileSetupPage() {
             </span>
             <input
               required
+              maxLength={100}
               value={
                 form.profile_name
               }
@@ -171,6 +168,8 @@ export default function ProfileSetupPage() {
             <input
               required
               type="date"
+              min="1000-01-01"
+              max={localToday()}
               value={
                 form.dob
               }
@@ -219,7 +218,7 @@ export default function ProfileSetupPage() {
 
           <label className="field">
             <span>
-              Height (cm)
+              Height ({lengthUnit})
             </span>
             <input
               required
@@ -244,7 +243,7 @@ export default function ProfileSetupPage() {
           <label className="field">
             <span>
               Current weight
-              (kg, optional)
+              ({weightUnit}, optional)
             </span>
             <input
               type="number"

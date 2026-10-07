@@ -125,26 +125,9 @@ export default function DashboardPage({ onNavigate }) {
 
     async function loadTasks() {
       try {
-        const lists = await api.getTaskLists(userId);
+        const summary = await api.getTaskSummary(userId);
         if (cancelled) return;
-
-        const taskArrays = await Promise.all(
-          lists.map((list) => api.getTasks(userId, list.list_id)),
-        );
-
-        if (cancelled) return;
-
-        const tasks = taskArrays.flat();
-
-        setTaskSummary({
-          userId,
-          loading: false,
-          error: "",
-          total: tasks.length,
-          completed: tasks.filter(
-            (task) => task.is_completed === true || task.is_completed === 1,
-          ).length,
-        });
+        setTaskSummary({ userId, loading: false, error: "", ...summary });
       } catch (error) {
         if (cancelled) return;
 

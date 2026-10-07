@@ -89,7 +89,8 @@ export default function MealHistoryPage() {
     nutritionLogs,
     nutritionTotals,
     refreshNutritionDay,
-    deleteNutritionLog
+    deleteNutritionLog,
+    dataStatus
   } = useApp();
 
   const [error, setError] = useState("");
@@ -280,7 +281,7 @@ export default function MealHistoryPage() {
                     <div>
                       <strong>{item.food_name}</strong>
                       <span>
-                        {item.quantity} {item.unit}
+                        {item.unit?.startsWith("portion:") || item.unit === "serving" ? `${item.weight_grams} g · ${item.quantity} USDA portion(s)` : `${item.quantity} ${item.unit}`}
                         {" · Calories: "}
                         {foodValue(item.calories, "kcal", 0)}
                         {" · Protein: "}
@@ -304,7 +305,8 @@ export default function MealHistoryPage() {
           );
         })}
 
-        {logs.length === 0 && (
+        {dataStatus.nutrition === "loading" && <p role="status">Loading foods for {nutritionDate}…</p>}
+        {dataStatus.nutrition === "ready" && logs.length === 0 && (
           <GlassCard glow>
             <div className="empty-state">
               No foods logged for {nutritionDate}.

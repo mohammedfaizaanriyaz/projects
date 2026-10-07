@@ -3,6 +3,9 @@ const {
     resolveWeightInGrams
 } = require("../utils/unitConverter");
 
+const { createProviderCache } = require("../utils/providerCache");
+const cached = createProviderCache();
+
 const USDA_BASE_URL = "https://api.nal.usda.gov/fdc/v1";
 
 function nutritionServiceError(statusCode, message) {
@@ -53,6 +56,10 @@ const fetchUsda = async (url, options = {}) => {
                 404,
                 "The requested USDA food was not found."
             );
+        }
+
+        if (response.status === 429) {
+            throw nutritionServiceError(503, "Nutrition provider quota is temporarily exhausted. Please try again later.");
         }
 
         if (!response.ok) {
@@ -207,7 +214,7 @@ const normalizeFoodNutrient = (entry) => {
         id: Number.isFinite(id) ? id : null,
         name,
         unitName,
-        amount: Number.isFinite(amount) ? amount : null
+        amount: Number.isFinite(amount) && amount >= 0 ? amount : null
     };
 };
 
@@ -267,8 +274,11 @@ const scaleNutrition = (nutrientsPer100g, weightGrams) => {
     for (const definition of NUTRIENT_DEFINITIONS) {
         const value = nutrientsPer100g[definition.key];
 
-        scaled[definition.key] =
-            value == null ? null : round(value * factor);
+        const amount = value == null ? null : round(value * factor);
+        if (value != null && (amount === null || amount > 999999999999.99)) {
+            throw nutritionServiceError(400, "This quantity produces nutrient values too large to save. Use a smaller quantity.");
+        }
+        scaled[definition.key] = amount;
     }
 
     return scaled;
@@ -276,7 +286,7 @@ const scaleNutrition = (nutrientsPer100g, weightGrams) => {
 
 const formatSearchFood = (food) => ({
     fdcId: food.fdcId,
-    description: food.description,
+    description: Array.from(food.description).slice(0, 255).join(""),
     dataType: food.dataType,
     brandOwner: food.brandOwner || null,
     brandName: food.brandName || null
@@ -309,7 +319,7 @@ const searchFoods = async (query, pageSize = 10) => {
     url.searchParams.set("query", query.trim());
     url.searchParams.set("pageSize", safePageSize);
 
-    const data = await fetchUsda(url);
+    const data = await cached(`search:${safePageSize}:${query.trim().toLowerCase()}`, () => fetchUsda(url));
 
     if (!data || !Array.isArray(data.foods)) {
         throw nutritionServiceError(
@@ -318,7 +328,8 @@ const searchFoods = async (query, pageSize = 10) => {
         );
     }
 
-    return data.foods.map(formatSearchFood);
+    return data.foods.filter((food) => food && Number.isSafeInteger(Number(food.fdcId)) &&
+        Number(food.fdcId) > 0 && typeof food.description === "string").map(formatSearchFood);
 };
 
 // GET RAW FOOD DETAILS
@@ -339,13 +350,14 @@ const getRawFoodDetails = async (fdcId) => {
     const url = new URL(`${USDA_BASE_URL}/food/${numericFdcId}`);
     url.searchParams.set("api_key", process.env.USDA_API_KEY);
 
-    const food = await fetchUsda(url);
+    const food = await cached(`food:${numericFdcId}`, () => fetchUsda(url));
 
     if (
         !food ||
         typeof food !== "object" ||
         Array.isArray(food) ||
-        Number(food.fdcId) !== numericFdcId
+        Number(food.fdcId) !== numericFdcId ||
+        typeof food.description !== "string"
     ) {
         throw nutritionServiceError(
             502,
@@ -416,9 +428,15 @@ const analyzeFoodByName = async ({ foodName, quantity, unit }) => {
 
 // ANALYZE RECIPE
 const analyzeRecipe = async (ingredients) => {
-    const results = [];
-
-    for (const ingredient of ingredients) {
+    const results = new Array(ingredients.length);
+    const deadline = Date.now() + 30000;
+    let cursor = 0;
+    let stopped = false;
+    const checkDeadline = () => {
+        if (stopped || Date.now() >= deadline) throw nutritionServiceError(504, "Recipe calculation timed out. Try fewer ingredients.");
+    };
+    async function calculateIngredient(ingredient) {
+        checkDeadline();
         let fdcId = ingredient.fdcId ? Number(ingredient.fdcId) : null;
         let matchInfo = null;
 
@@ -441,17 +459,30 @@ const analyzeRecipe = async (ingredients) => {
             };
         }
 
+        checkDeadline();
         const calculation = await calculateFood({
             fdcId,
             quantity: ingredient.quantity,
             unit: ingredient.unit
         });
 
-        results.push({
-            ...calculation,
-            match: matchInfo
-        });
+        return { ...calculation, match: matchInfo };
     }
+    let timer;
+    try {
+        await Promise.race([
+            Promise.all(Array.from({ length: Math.min(3, ingredients.length) }, async () => {
+                while (cursor < ingredients.length) {
+                    checkDeadline();
+                    const index = cursor++;
+                    results[index] = await calculateIngredient(ingredients[index]);
+                }
+            })),
+            new Promise((_, reject) => {
+                timer = setTimeout(() => reject(nutritionServiceError(504, "Recipe calculation timed out. Try fewer ingredients.")), 30000);
+            })
+        ]);
+    } finally { stopped = true; clearTimeout(timer); }
 
     const totals = {};
     const incompleteNutrients = [];

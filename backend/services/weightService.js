@@ -81,5 +81,12 @@ const getWeightHistory = async (profileId) => {
 module.exports = {
     getBodyProfile,
     saveWeightRecord,
-    getWeightHistory
+    getWeightHistory,
+    async deleteWeightRecord(profileId, weightId) {
+        const result = await pool.query(
+            "DELETE FROM weight_records WHERE profile_id = ? AND weight_id = ?",
+            [profileId, weightId]
+        );
+        return result.affectedRows > 0;
+    }
 };

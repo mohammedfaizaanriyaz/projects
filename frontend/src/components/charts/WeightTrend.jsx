@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, useMemo } from "react";
 import {
   Area,
   AreaChart,
@@ -51,11 +51,11 @@ function formatWeight(value) {
 }
 
 export default function WeightTrend({ records = [] }) {
-  const { weightUnit } = useApp();
+  const { weightUnit, dataStatus } = useApp();
   const unit = weightUnit === "lb" ? "lb" : "kg";
   const gradientId = `weight-fill-${useId().replace(/:/g, "")}`;
 
-  const data = records.flatMap((record) => {
+  const data = useMemo(() => records.slice(-500).flatMap((record) => {
     const rawWeight = record.weight_kg;
 
     if (rawWeight === null || rawWeight === undefined || rawWeight === "") {
@@ -75,7 +75,7 @@ export default function WeightTrend({ records = [] }) {
         value: unit === "lb" ? kilograms / KG_PER_POUND : kilograms,
       },
     ];
-  });
+  }), [records, unit]);
 
   return (
     <GlassCard className="chart-card" glow>
@@ -85,12 +85,12 @@ export default function WeightTrend({ records = [] }) {
           <h3>Weight trend ({unit})</h3>
         </div>
 
-        <span className="metric-chip">{data.length} records</span>
+        <span className="metric-chip">{records.length > 500 ? "Latest 500 of " + records.length : data.length} records</span>
       </div>
 
       {data.length === 0 ? (
         <div className="empty-state">
-          Add your first weight record to see a trend.
+          {dataStatus?.weight === "loading" || dataStatus?.weight === "idle" ? "Loading weight history…" : dataStatus?.weight === "error" ? "Weight history is unavailable. Retry loading your data." : "Add your first weight record to see a trend."}
         </div>
       ) : (
         <div className="chart-wrap">

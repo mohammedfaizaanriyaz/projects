@@ -1,0 +1,24 @@
+[Unit]
+Description=VYRA application
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=vyra
+Group=vyra
+WorkingDirectory=/srv/vyra
+# Use the absolute path to a system-wide Node 24 installation.
+ExecStart=/usr/bin/node /srv/vyra/backend/server.js
+Environment=NODE_ENV=production
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

@@ -1,242 +1,74 @@
-import {
-  useMemo,
-  useState
-} from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
+import AppShell from "./components/layout/AppShell";
+import ErrorBoundary from "./components/ui/ErrorBoundary";
+import { useApp } from "./context/AppContext";
+import AuthPage from "./pages/AuthPage";
+import ProfileSetupPage from "./pages/ProfileSetupPage";
 
-import AppShell
-  from "./components/layout/AppShell";
-
-import {
-  useApp
-} from "./context/AppContext";
-
-import AuthPage
-  from "./pages/AuthPage";
-
-import BodyMetricsPage
-  from "./pages/BodyMetricsPage";
-
-import DashboardPage
-  from "./pages/DashboardPage";
-
-import HealthPage
-  from "./pages/HealthPage";
-
-import MealHistoryPage
-  from "./pages/MealHistoryPage";
-
-import MealsPage
-  from "./pages/MealsPage";
-
-import MeasurementsPage
-  from "./pages/MeasurementsPage";
-
-import NutritionPage
-  from "./pages/NutritionPage";
-
-import ProfileSetupPage
-  from "./pages/ProfileSetupPage";
-
-import ProfilesPage
-  from "./pages/ProfilesPage";
-
-import ProgressPage
-  from "./pages/ProgressPage";
-
-import RecipesPage
-  from "./pages/RecipesPage";
-
-import RemindersPage
-  from "./pages/RemindersPage";
-
-import SettingsPage
-  from "./pages/SettingsPage";
-
-import TasksPage
-  from "./pages/TasksPage";
-
-import WeightPage
-  from "./pages/WeightPage";
+const pages = {
+  dashboard: lazy(() => import("./pages/DashboardPage")),
+  profiles: lazy(() => import("./pages/ProfilesPage")),
+  health: lazy(() => import("./pages/HealthPage")),
+  weight: lazy(() => import("./pages/WeightPage")),
+  measurements: lazy(() => import("./pages/MeasurementsPage")),
+  "body-metrics": lazy(() => import("./pages/BodyMetricsPage")),
+  nutrition: lazy(() => import("./pages/NutritionPage")),
+  meals: lazy(() => import("./pages/MealsPage")),
+  "meal-history": lazy(() => import("./pages/MealHistoryPage")),
+  recipes: lazy(() => import("./pages/RecipesPage")),
+  tasks: lazy(() => import("./pages/TasksPage")),
+  reminders: lazy(() => import("./pages/RemindersPage")),
+  progress: lazy(() => import("./pages/ProgressPage")),
+  settings: lazy(() => import("./pages/SettingsPage")),
+};
+function readPage() {
+  const page = window.location.hash.replace(/^#\/?/, "");
+  return Object.hasOwn(pages, page) ? page : "dashboard";
+}
+function Loading({ children }) {
+  return <main className="loading-screen" role="status"><div className="loading-orb" /><strong>VYRA</strong><span>{children}</span></main>;
+}
 
 export default function App() {
-  const {
-    sessionLoading,
-    profilesLoading,
-    user,
-    profiles,
-    globalError,
-    setGlobalError
-  } =
-    useApp();
-
-  const [
-    activePage,
-    setActivePage
-  ] =
-    useState(
-      "dashboard"
-    );
-
-  const page =
-    useMemo(() => {
-      switch (
-        activePage
-      ) {
-        case "profiles":
-          return (
-            <ProfilesPage />
-          );
-
-        case "health":
-          return (
-            <HealthPage />
-          );
-
-        case "weight":
-          return (
-            <WeightPage />
-          );
-
-        case "measurements":
-          return (
-            <MeasurementsPage />
-          );
-
-        case "body-metrics":
-          return (
-            <BodyMetricsPage />
-          );
-
-        case "nutrition":
-          return (
-            <NutritionPage />
-          );
-
-        case "meals":
-          return (
-            <MealsPage />
-          );
-
-        case "meal-history":
-          return (
-            <MealHistoryPage />
-          );
-
-        case "recipes":
-          return (
-            <RecipesPage />
-          );
-
-        case "tasks":
-          return (
-            <TasksPage />
-          );
-
-        case "reminders":
-          return (
-            <RemindersPage />
-          );
-
-        case "progress":
-          return (
-            <ProgressPage />
-          );
-
-        case "settings":
-          return (
-            <SettingsPage />
-          );
-
-        case "dashboard":
-        default:
-          return (
-            <DashboardPage
-              onNavigate={
-                setActivePage
-              }
-            />
-          );
-      }
-    }, [activePage]);
-
-  if (
-    sessionLoading
-  ) {
-    return (
-      <main className="loading-screen">
-        <div className="loading-orb" />
-        <strong>
-          VYRA
-        </strong>
-        <span>
-          Checking secure
-          session...
-        </span>
-      </main>
-    );
+  const { sessionLoading, profilesLoading, profilesReady, profilesError, user, profiles,
+    globalError, setGlobalError, dataStatus, initializeSession, refreshProfiles,
+    refreshSelectedProfile, refreshWeightHistory, refreshNutritionDay, logout } = useApp();
+  const [activePage, setActivePage] = useState(readPage);
+  useEffect(() => {
+    const change = () => setActivePage(readPage());
+    window.addEventListener("hashchange", change);
+    return () => window.removeEventListener("hashchange", change);
+  }, []);
+  useEffect(() => { document.title = `${activePage.replaceAll("-", " ")} · VYRA`; }, [activePage]);
+  function navigate(page) { if (Object.hasOwn(pages, page)) window.location.hash = `/${page}`; }
+  function retryData() {
+    setGlobalError("");
+    refreshProfiles(); refreshSelectedProfile(); refreshWeightHistory(); refreshNutritionDay();
   }
-
-  if (!user) {
-    return (
-      <AuthPage />
-    );
+  const errorNotice = globalError && (
+    <div className="global-error" role="alert">
+      <span>{globalError}</span>{" "}
+      <button className="text-button" onClick={user ? retryData : initializeSession}>Retry loading</button>{" "}
+      <button className="text-button" aria-label="Dismiss error" onClick={() => setGlobalError("")}>Dismiss</button>
+    </div>
+  );
+  if (sessionLoading) return <Loading>Checking secure session…</Loading>;
+  if (!user) return <>{errorNotice}<AuthPage /></>;
+  if (!profilesReady) {
+    if (profilesLoading) return <Loading>Loading profiles…</Loading>;
+    return <main className="loading-screen"><div role="alert">{profilesError || "Profiles could not be loaded."}</div><button onClick={() => refreshProfiles()}>Retry profiles</button><button onClick={logout}>Sign out</button></main>;
   }
-
-  if (
-    profilesLoading
-  ) {
-    return (
-      <main className="loading-screen">
-        <div className="loading-orb" />
-        <strong>
-          VYRA
-        </strong>
-        <span>
-          Loading profiles...
-        </span>
-      </main>
-    );
-  }
-
-  if (
-    profiles.length ===
-    0
-  ) {
-    return (
-      <ProfileSetupPage />
-    );
-  }
-
+  if (profiles.length === 0) return <>{errorNotice}<ProfileSetupPage /></>;
+  const Page = pages[activePage];
   return (
-    <AppShell
-      activePage={
-        activePage
-      }
-      onNavigate={
-        setActivePage
-      }
-    >
-      {globalError && (
-        <button
-          className="global-error"
-          onClick={() =>
-            setGlobalError(
-              ""
-            )
-          }
-        >
-          {globalError}
-        </button>
-      )}
-
-      <div
-        className="page-enter"
-        key={
-          activePage
-        }
-      >
-        {page}
-      </div>
+    <AppShell activePage={activePage} onNavigate={navigate}>
+      {errorNotice}
+      {Object.values(dataStatus).includes("loading") && <p role="status">Updating profile data…</p>}
+      <ErrorBoundary key={activePage}>
+        <Suspense fallback={<p role="status">Loading page…</p>}>
+          <div className="page-enter"><Page onNavigate={navigate} /></div>
+        </Suspense>
+      </ErrorBoundary>
     </AppShell>
   );
 }

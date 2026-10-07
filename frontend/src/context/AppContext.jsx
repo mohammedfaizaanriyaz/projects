@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 
-import { api } from "../services/api";
+import { api, notifySessionChange } from "../services/api";
 
 const AppContext = createContext(null);
 
@@ -62,6 +62,9 @@ export function AppProvider({ children }) {
   const [user, setUser] = useState(null);
   const [profiles, setProfiles] = useState([]);
   const [profilesLoading, setProfilesLoading] = useState(true);
+  const [profilesReady, setProfilesReady] = useState(false);
+  const [profilesError, setProfilesError] = useState("");
+  const [dataStatus, setDataStatus] = useState({ profile: "idle", weight: "idle", nutrition: "idle" });
   const [selectedProfileId, setSelectedProfileId] = useState(null);
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [weightHistory, setWeightHistory] = useState([]);
@@ -110,6 +113,9 @@ export function AppProvider({ children }) {
       generation: activeAccount.current.generation + 1,
     };
 
+    notifySessionChange();
+    setProfilesReady(false);
+    setProfilesError("");
     setProfiles([]);
     setSelectedProfileId(null);
     setProfilesLoading(Boolean(user?.user_id));
@@ -142,7 +148,7 @@ export function AppProvider({ children }) {
     if (user?.user_id && selectedProfileId && profileBelongsToAccount) {
       refreshSelectedProfile(selectedProfileId);
       refreshWeightHistory(selectedProfileId);
-      refreshNutritionDay(nutritionDate, selectedProfileId);
+
     }
 
     return () => {
@@ -151,7 +157,26 @@ export function AppProvider({ children }) {
         generation: activeSelection.current.generation + 1,
       };
     };
+  }, [user?.user_id, selectedProfileId]);
+
+  useLayoutEffect(() => {
+    activeSelection.current.date = nutritionDate;
+    latestRequest.current.nutrition += 1;
+    setNutritionLogs([]);
+    setNutritionTotals(emptyNutritionTotals());
+    if (user?.user_id && selectedProfileId) refreshNutritionDay(nutritionDate, selectedProfileId);
   }, [user?.user_id, selectedProfileId, nutritionDate]);
+
+  useEffect(() => {
+    const expired = () => {
+      notifySessionChange();
+      sessionRequest.current += 1;
+      setUser(null);
+      setGlobalError("Your session expired. Please sign in again.");
+    };
+    window.addEventListener("vyra:session-expired", expired);
+    return () => window.removeEventListener("vyra:session-expired", expired);
+  }, []);
 
   useEffect(() => {
     initializeSession();
@@ -168,6 +193,7 @@ export function AppProvider({ children }) {
   }, [user?.user_id]);
 
   function clearProfileData() {
+    setDataStatus({ profile: "idle", weight: "idle", nutrition: "idle" });
     setSelectedProfile(null);
     setWeightHistory([]);
     setNutritionLogs([]);
@@ -246,11 +272,14 @@ export function AppProvider({ children }) {
 
     try {
       setProfilesLoading(true);
+      setProfilesError("");
 
       const data = await api.getProfiles(explicitUserId);
 
       if (!isCurrentRequest()) return [];
 
+      if (!Array.isArray(data)) throw new Error("Could not read the profile list.");
+      setProfilesReady(true);
       setProfiles(data);
 
       setSelectedProfileId((current) => {
@@ -268,6 +297,7 @@ export function AppProvider({ children }) {
       return data;
     } catch (error) {
       if (isCurrentRequest()) {
+        setProfilesError(error.message);
         setGlobalError(error.message);
       }
 
@@ -315,14 +345,17 @@ export function AppProvider({ children }) {
     }
 
     try {
+      setDataStatus((current) => ({ ...current, [kind]: "loading" }));
       const data = await fetchData();
 
       if (!isCurrentRequest()) return null;
 
       applyData(data);
+      setDataStatus((current) => ({ ...current, [kind]: "ready" }));
       return data;
     } catch (error) {
       if (isCurrentRequest()) {
+        setDataStatus((current) => ({ ...current, [kind]: "error" }));
         setGlobalError(error.message);
       }
 
@@ -411,6 +444,7 @@ export function AppProvider({ children }) {
   async function login(credentials) {
     const data = await api.login(credentials);
 
+    notifySessionChange();
     sessionRequest.current += 1;
     setGlobalError("");
     setUser(data.user);
@@ -421,6 +455,7 @@ export function AppProvider({ children }) {
   async function register(values) {
     const data = await api.register(values);
 
+    notifySessionChange();
     sessionRequest.current += 1;
     setGlobalError("");
     setUser(data.user);
@@ -431,7 +466,12 @@ export function AppProvider({ children }) {
   async function logout() {
     try {
       await api.logout();
-    } finally {
+    } catch (error) {
+      setGlobalError(`Sign out failed: ${error.message} You are still signed in; please retry.`);
+      return false;
+    }
+    {
+      notifySessionChange();
       sessionRequest.current += 1;
 
       activeAccount.current = {
@@ -463,7 +503,7 @@ export function AppProvider({ children }) {
       throw new Error("Login required");
     }
 
-    const result = await api.createProfile(userId, payload);
+    const result = await api.createProfile(userId, { recorded_date: getLocalDateKey(), ...payload, time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone });
 
     if (!accountMatches(userId, generation)) return result;
 
@@ -499,7 +539,7 @@ export function AppProvider({ children }) {
     const userId = user?.user_id;
     const generation = activeAccount.current.generation;
 
-    const result = await api.updateProfile(profileId, payload);
+    const result = await api.updateProfile(profileId, { ...payload, time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone });
 
     if (!accountMatches(userId, generation)) return result;
 
@@ -534,7 +574,7 @@ export function AppProvider({ children }) {
     const userId = user?.user_id;
     const generation = activeAccount.current.generation;
 
-    const result = await api.addWeight(profileId, payload);
+    const result = await api.addWeight(profileId, { ...payload, time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone });
 
     if (!accountMatches(userId, generation)) return result;
 
@@ -547,6 +587,17 @@ export function AppProvider({ children }) {
     return result;
   }
 
+  async function deleteWeight(weightId) {
+    const profileId = requireCurrentProfile();
+    const userId = user?.user_id;
+    const generation = activeAccount.current.generation;
+    const result = await api.deleteWeight(profileId, weightId);
+    if (accountMatches(userId, generation)) {
+      await Promise.all([refreshSelectedProfile(profileId), refreshWeightHistory(profileId), refreshProfiles(userId)]);
+    }
+    return result;
+  }
+
   const value = useMemo(
     () => ({
       weightUnit,
@@ -556,6 +607,9 @@ export function AppProvider({ children }) {
       unitPreferenceError,
       sessionLoading,
       profilesLoading,
+      profilesReady,
+      profilesError,
+      dataStatus,
       user,
       profiles,
       selectedProfileId,
@@ -580,6 +634,8 @@ export function AppProvider({ children }) {
       updateSelectedProfile,
       deleteSelectedProfile,
       addWeight,
+      deleteWeight,
+      initializeSession,
       selectProfile: setSelectedProfileId,
     }),
     [
@@ -588,6 +644,9 @@ export function AppProvider({ children }) {
       unitPreferenceError,
       sessionLoading,
       profilesLoading,
+      profilesReady,
+      profilesError,
+      dataStatus,
       user,
       profiles,
       selectedProfileId,

@@ -1,83 +1,29 @@
-# VYRA connected frontend
+# VYRA frontend
 
-This version is matched to the committed backend plus the
-`vyra_backend_daily_nutrition_patch`.
+React 19/Vite 8 interface for the Express/MariaDB application in this repository.
+It uses hash routes (`/#/dashboard`, `/#/weight`, and the other navigation pages),
+so the production server only needs to serve the application at `/`.
 
-## Connected app flow
-
-- Register / login / logout with backend HTTP-only cookie
-- `/api/auth/me` session restore
-- No localStorage user-ID identity
-- Profiles
-- Profile measurements
-- Weight history + real chart
-- Task lists + tasks
-- Reminders
-- USDA FoodData Central search
-- Exact quantity nutrition calculation
-- Add calculated USDA food to:
-  - Breakfast
-  - Lunch
-  - Dinner
-  - Snack
-  - Other
-- Daily MariaDB nutrition log
-- Daily calorie counter
-- Daily protein / carbs / fat / fibre
-- Potassium / sodium / calcium / iron totals
-- Daily food history
-- Delete food from daily log
-- Dashboard nutrition totals
-
-## Required backend patch
-
-Before using Daily Log, apply:
-
-`vyra_backend_daily_nutrition_patch.zip`
-
-and run:
+Run dependency installation and release commands from the repository root:
 
 ```bash
-sudo mariadb < db/db-init/002_add_nutrition_logs.sql
-```
-
-## Run
-
-Backend:
-
-```bash
-cd ~/my_work/projects/backend
+npm ci
 npm run dev
+npm run build
+npm run test -w frontend
 ```
 
-Frontend:
+Development uses a Vite proxy for `/api` to `http://127.0.0.1:5000`. Set
+`DEV_BACKEND_URL` only when your local backend uses another address. Keep
+`VITE_API_URL` empty; production builds reject an external API base because
+Express serves both UI and API on the same HTTPS origin. Never put a secret in
+`VITE_*` variables: they are browser-visible.
 
-```bash
-cd ~/my_work/projects/frontend
-npm install
-npm run dev
-```
+The API client sends cookies and the write-protection header, handles timeouts
+and session expiry, and rejects unreadable success responses. AppContext owns
+account/profile selection, weight data, and the selected nutrition date. Pages
+load lazily; stale responses cannot replace data for a newer selection.
 
-Frontend `.env`:
-
-```env
-VITE_API_URL=http://localhost:5000
-```
-
-Backend `.env` must include:
-
-```env
-FRONTEND_ORIGIN=http://localhost:5173
-USDA_API_KEY=your_real_key_or_DEMO_KEY
-```
-
-## Nutrition flow
-
-1. Open Nutrition Calculator
-2. Search USDA food
-3. Select exact result
-4. Enter quantity + unit
-5. Calculate
-6. Select meal
-7. Add to daily log
-8. Dashboard + Daily Log update automatically
+No external backend ZIP patch is required. Database preparation is manual:
+read [Manual database preparation](../docs/MANUAL_DATABASE.md), then follow the
+[root README](../README.md) and [Deployment](../docs/DEPLOYMENT.md).

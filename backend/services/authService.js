@@ -55,7 +55,7 @@ const createToken = (
         process.env.JWT_SECRET,
 
         {
-            expiresIn: "7d"
+            expiresIn: "7d", algorithm: "HS256"
         }
     );
 };
@@ -76,7 +76,8 @@ const verifyToken = (
 
     return jwt.verify(
         token,
-        process.env.JWT_SECRET
+        process.env.JWT_SECRET,
+        { algorithms: ["HS256"] }
     );
 };
 

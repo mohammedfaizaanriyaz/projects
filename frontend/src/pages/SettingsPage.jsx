@@ -76,7 +76,7 @@ export default function SettingsPage() {
             <ShieldCheck size={21} />
             <div>
               <strong>Identity</strong>
-              <span>HTTP-only backend auth cookie</span>
+              <span>Your session is protected. Sign out on shared devices.</span>
             </div>
           </div>
         </GlassCard>

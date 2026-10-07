@@ -1,226 +1,29 @@
-require("dotenv").config();
+const path = require("node:path");
+require("dotenv").config({ path: path.join(__dirname, ".env"), quiet: true });
+const config = require("./config/validateEnv")();
+const { createApp } = require("./app");
+const pool = require("./db");
+const app = createApp({ config });
+const server = app.listen(config.port, process.env.HOST || "0.0.0.0", () => {
+  console.log(JSON.stringify({ event: "server_started", port: config.port, mode: process.env.NODE_ENV || "development" }));
+});
+server.requestTimeout = 45000;
+server.headersTimeout = 15000;
 
-const validateEnv =
-    require("./config/validateEnv");
-
-validateEnv();
-
-const express =
-    require("express");
-
-const cors =
-    require("cors");
-
-const cookieParser =
-    require("cookie-parser");
-
-const authRoutes =
-    require("./routes/authRoutes");
-
-const pool =
-    require("./db");
-
-const requestLogger =
-    require(
-        "./middleware/requestLogger"
-    );
-
-const errorHandler =
-    require(
-        "./middleware/errorHandler"
-    );
-
-const asyncHandler =
-    require(
-        "./utils/asyncHandler"
-    );
-
-const userRoutes =
-    require("./routes/userRoutes");
-
-const profileRoutes =
-    require("./routes/profileRoutes");
-
-const nutritionRoutes =
-    require(
-        "./routes/nutritionRoutes"
-    );
-
-
-const app =
-    express();
-
-
-const PORT =
-    process.env.PORT ||
-    5000;
-
-
-// ============================================================
-// MIDDLEWARE
-// ============================================================
-
-app.use(
-    cors({
-        origin:
-            process.env
-                .FRONTEND_ORIGIN ||
-            "http://localhost:5173",
-
-        credentials:
-            true
-    })
-);
-
-
-app.use(
-    express.json({
-        limit:
-            "100kb"
-    })
-);
-
-
-app.use(
-    cookieParser()
-);
-
-
-app.use(
-    requestLogger
-);
-
-
-// ============================================================
-// TEST ROUTE
-// ============================================================
-
-app.get(
-    "/",
-    (
-        req,
-        res
-    ) => {
-
-        res
-            .status(200)
-            .json({
-                status:
-                    "success",
-
-                message:
-                    "Weight Tracker backend is working"
-            });
-    }
-);
-
-
-// ============================================================
-// DATABASE HEALTH CHECK
-// ============================================================
-
-app.get(
-    "/api/health",
-
-    asyncHandler(
-        async (
-            req,
-            res
-        ) => {
-
-            await pool.query(
-                "SELECT 1 AS database_test"
-            );
-
-
-            res
-                .status(200)
-                .json({
-                    backend:
-                        "working",
-
-                    database:
-                        "connected"
-                });
-        }
-    )
-);
-
-
-// ============================================================
-// API ROUTES
-// ============================================================
-
-app.use(
-    "/api/auth",
-    authRoutes
-);
-
-
-app.use(
-    "/api/users",
-    userRoutes
-);
-
-
-app.use(
-    "/api/profiles",
-    profileRoutes
-);
-
-
-app.use(
-    "/api/nutrition",
-    nutritionRoutes
-);
-
-
-// ============================================================
-// 404 ROUTE
-// ============================================================
-
-app.use(
-    (
-        req,
-        res
-    ) => {
-
-        res
-            .status(404)
-            .json({
-                error:
-                    "API route not found"
-            });
-    }
-);
-
-
-// ============================================================
-// ERROR HANDLER
-// Must stay after all routes
-// ============================================================
-
-app.use(
-    errorHandler
-);
-
-
-// ============================================================
-// START SERVER
-// ============================================================
-
-app.listen(
-    PORT,
-    "0.0.0.0",
-    () => {
-
-        console.log(
-            `Weight Tracker server running at http://localhost:${PORT}`
-        );
-
-
-        console.log(
-            `Health check: http://localhost:${PORT}/api/health`
-        );
-    }
-);
+let closing = false;
+function shutdown(signal) {
+  if (closing) return;
+  closing = true;
+  console.log(JSON.stringify({ event: "server_stopping", signal }));
+  const deadline = setTimeout(() => process.exit(1), 15000).unref();
+  server.close(async () => {
+    try { await pool.end(); clearTimeout(deadline); process.exit(0); }
+    catch { process.exit(1); }
+  });
+}
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
+server.on("error", (error) => {
+  console.error(JSON.stringify({ event: "server_start_failed", code: error.code }));
+  process.exit(1);
+});

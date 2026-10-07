@@ -1,4 +1,4 @@
-import { Check, Circle, Plus, Trash2 } from "lucide-react";
+import { Check, Circle, Plus, Trash2, Pencil } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import GlassCard from "../components/ui/GlassCard";
 import NeonButton from "../components/ui/NeonButton";
@@ -150,6 +150,18 @@ function TaskWorkspace({ userId }) {
     });
   }
 
+  function renameList(event) {
+    event.preventDefault();
+    if (disabled || !selectedList) return;
+    const name = String(new FormData(event.currentTarget).get("list_name") || "").trim();
+    if (!name) return;
+    const id = selectedList.list_id;
+    return run(async (isCurrent) => {
+      await api.updateTaskList(userId, id, { list_name: name, list_type: selectedList.list_type });
+      if (isCurrent()) setLists((current) => current.map((list) => list.list_id === id ? { ...list, list_name: name } : list));
+    });
+  }
+
   function removeList() {
     if (disabled || !selectedListId) return;
     if (!window.confirm("Delete this list and its tasks?")) return;
@@ -195,6 +207,7 @@ function TaskWorkspace({ userId }) {
           <form className="inline-form" onSubmit={createList}>
             <input
               required
+              maxLength={120}
               aria-label="New list name"
               value={listName}
               disabled={disabled}
@@ -246,6 +259,10 @@ function TaskWorkspace({ userId }) {
             <p>Create your first list to get started.</p>
           )}
 
+          {selectedList && <form className="inline-form" key={`${selectedList.list_id}:${selectedList.list_name}`} onSubmit={renameList}>
+            <input name="list_name" aria-label="Rename selected list" defaultValue={selectedList.list_name} required maxLength={120} disabled={disabled} />
+            <button type="submit" className="text-button" disabled={disabled}>Rename</button>
+          </form>}
           {selectedList && (
             <button
               type="button"
@@ -291,8 +308,17 @@ function emptyTaskForm() {
   };
 }
 
+function localDateTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  const pad = (number) => String(number).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 function TaskListPanel({ userId, listId, listName, workspaceBusy }) {
   const [tasks, setTasks] = useState([]);
+  const [editingTask, setEditingTask] = useState(null);
   const [taskForm, setTaskForm] = useState(emptyTaskForm);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -351,12 +377,26 @@ function TaskListPanel({ userId, listId, listName, workspaceBusy }) {
     };
 
     return run(async (isCurrent) => {
-      await api.createTask(userId, listId, payload);
+      if (editingTask) {
+        for (const field of ["due_at", "reminder_at"]) {
+          if (taskForm[field] === localDateTime(editingTask[field])) payload[field] = editingTask[field];
+        }
+        await api.updateTask(userId, listId, editingTask.task_id, payload);
+      } else await api.createTask(userId, listId, payload);
       if (!isCurrent()) return;
 
+      setEditingTask(null);
       setTaskForm(emptyTaskForm());
       reloadTasks();
     });
+  }
+
+  function editTask(task) {
+    if (disabled) return;
+    setEditingTask(task);
+    setTaskForm({ title: task.title, description: task.description || "",
+      time_limit_minutes: task.time_limit_minutes == null ? "" : String(task.time_limit_minutes),
+      due_at: localDateTime(task.due_at), reminder_at: localDateTime(task.reminder_at) });
   }
 
   function toggle(task) {
@@ -367,7 +407,7 @@ function TaskListPanel({ userId, listId, listName, workspaceBusy }) {
         userId,
         listId,
         task.task_id,
-        !Boolean(task.is_completed)
+        !task.is_completed
       );
 
       if (isCurrent()) reloadTasks();
@@ -377,6 +417,7 @@ function TaskListPanel({ userId, listId, listName, workspaceBusy }) {
   function removeTask(task) {
     if (disabled || Number(task.list_id) !== Number(listId)) return;
 
+    if (!window.confirm(`Delete task "${task.title}"?`)) return;
     return run(async (isCurrent) => {
       await api.deleteTask(userId, listId, task.task_id);
       if (isCurrent()) reloadTasks();
@@ -407,6 +448,7 @@ function TaskListPanel({ userId, listId, listName, workspaceBusy }) {
       <form className="task-create-form" onSubmit={createTask}>
         <input
           required
+          maxLength={200}
           aria-label="Task title"
           value={taskForm.title}
           disabled={disabled}
@@ -426,6 +468,7 @@ function TaskListPanel({ userId, listId, listName, workspaceBusy }) {
           placeholder="Description"
         />
 
+        <label className="field"><span>Time limit (minutes, optional)</span><input type="number" min="1" max="2147483647" step="1" value={taskForm.time_limit_minutes} disabled={disabled} onChange={(event) => updateTaskForm("time_limit_minutes", event.target.value)} /></label>
         <div className="task-create-form__row">
           <label>
             <span>Due</span>
@@ -456,8 +499,9 @@ function TaskListPanel({ userId, listId, listName, workspaceBusy }) {
           type="submit"
           disabled={disabled || !taskForm.title.trim()}
         >
-          {busy ? "Working..." : "Add task"}
+          {busy ? "Working..." : editingTask ? "Save task" : "Add task"}
         </NeonButton>
+        {editingTask && <button type="button" className="text-button" disabled={disabled} onClick={() => { setEditingTask(null); setTaskForm(emptyTaskForm()); }}>Cancel editing</button>}
       </form>
 
       {loadError && (
@@ -501,6 +545,8 @@ function TaskListPanel({ userId, listId, listName, workspaceBusy }) {
 
               <div className="task-row__body">
                 <strong>{task.title}</strong>
+                {task.description && <p className="task-description">{task.description}</p>}
+                {task.time_limit_minutes != null && <span>{task.time_limit_minutes} minutes</span>}
                 <span>
                   {task.due_at
                     ? `Due ${new Date(task.due_at).toLocaleString()}`
@@ -508,6 +554,7 @@ function TaskListPanel({ userId, listId, listName, workspaceBusy }) {
                 </span>
               </div>
 
+              <button type="button" className="icon-button" disabled={disabled} aria-label={`Edit ${task.title}`} onClick={() => editTask(task)}><Pencil size={15} /></button>
               <button
                 type="button"
                 className="icon-button"

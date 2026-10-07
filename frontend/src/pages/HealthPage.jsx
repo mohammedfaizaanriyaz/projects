@@ -18,10 +18,14 @@ import {
   useApp
 } from "../context/AppContext";
 
+import { displayMeasurement } from "../utils/units";
+
 export default function HealthPage() {
   const {
     selectedProfile,
-    weightHistory
+    weightHistory,
+    weightUnit,
+    lengthUnit
   } =
     useApp();
 
@@ -45,7 +49,7 @@ export default function HealthPage() {
           label="Current weight"
           value={
             latest
-              ? `${latest.weight_kg} kg`
+              ? displayMeasurement(latest.weight_kg, weightUnit)
               : "No record"
           }
           helper="Latest weight record"
@@ -58,7 +62,7 @@ export default function HealthPage() {
           value={
             selectedProfile
               ?.height_cm
-              ? `${selectedProfile.height_cm} cm`
+              ? displayMeasurement(selectedProfile.height_cm, lengthUnit)
               : "Not set"
           }
           helper="Profile value"
@@ -87,7 +91,7 @@ export default function HealthPage() {
           value={
             selectedProfile
               ?.target_weight_kg
-              ? `${selectedProfile.target_weight_kg} kg`
+              ? displayMeasurement(selectedProfile.target_weight_kg, weightUnit)
               : "Optional"
           }
           helper="No judgment attached"
@@ -128,28 +132,28 @@ export default function HealthPage() {
               "Waist",
               selectedProfile
                 ?.waist_cm
-                ? `${selectedProfile.waist_cm} cm`
+                ? displayMeasurement(selectedProfile.waist_cm, lengthUnit)
                 : "—"
             ],
             [
               "Chest",
               selectedProfile
                 ?.chest_cm
-                ? `${selectedProfile.chest_cm} cm`
+                ? displayMeasurement(selectedProfile.chest_cm, lengthUnit)
                 : "—"
             ],
             [
               "Neck",
               selectedProfile
                 ?.neck_cm
-                ? `${selectedProfile.neck_cm} cm`
+                ? displayMeasurement(selectedProfile.neck_cm, lengthUnit)
                 : "—"
             ],
             [
               "Hip",
               selectedProfile
                 ?.hip_cm
-                ? `${selectedProfile.hip_cm} cm`
+                ? displayMeasurement(selectedProfile.hip_cm, lengthUnit)
                 : "—"
             ]
           ].map(

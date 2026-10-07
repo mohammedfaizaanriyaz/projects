@@ -44,18 +44,16 @@ const errorHandler = (error, req, res, next) => {
     }
 
     if (status >= 500) {
-        console.error("SERVER ERROR", {
-            method: req.method,
-            path: req.path,
-            status
-        });
-
-        if (process.env.NODE_ENV !== "production") {
-            console.error(error?.stack || error?.message);
-        }
+        // Driver messages/stacks can contain SQL parameters. Log codes and a
+        // request ID, never query text, credentials, health data or cookies.
+        console.error(JSON.stringify({
+            event: "server_error", requestId: req.requestId,
+            method: req.method, path: req.path, status,
+            type: error?.name, code: error?.code, sqlState: error?.sqlState
+        }));
     }
 
-    return res.status(status).json({ error: message });
+    return res.status(status).json({ error: message, requestId: req.requestId });
 };
 
 module.exports = errorHandler;

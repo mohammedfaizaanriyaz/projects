@@ -51,6 +51,11 @@ router.use(
 // DUE REMINDERS FOR USER
 // ============================================================
 
+router.get("/:userId/task-summary", async (req, res, next) => {
+    try { res.json(await require("../services/taskService").getTaskSummary(req.user.userId)); }
+    catch (error) { next(error); }
+});
+
 router.get(
     "/:userId/reminders/due",
     getDueRemindersByUser

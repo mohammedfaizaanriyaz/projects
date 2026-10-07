@@ -897,6 +897,10 @@ const updateTaskCompletion = async (
         }
 
 
+        if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
+            return res.status(400).json({ error: "Request body must be an object" });
+        }
+
         const {
             is_completed
         } = req.body;

@@ -8,9 +8,33 @@
     "frontend"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev -w backend\" \"npm run dev -w frontend\""
+    "dev": "concurrently \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "start": "npm run start -w backend",
+    "build": "npm run build -w frontend",
+    "lint": "eslint . --max-warnings=0",
+    "test": "npm run test -w backend && npm run test -w frontend",
+    "test:e2e": "playwright test",
+    "smoke:production": "node scripts/smoke-production.mjs",
+    "check": "npm run lint && npm test && npm run build"
   },
   "devDependencies": {
-    "concurrently": "^9.0.0"
+    "@axe-core/playwright": "^4.13.0",
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
+    "@testing-library/react": "^16.3.3",
+    "concurrently": "^9.0.0",
+    "eslint": "^10.12.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-x": "^5.24.6",
+    "globals": "^17.13.0",
+    "jsdom": "^30.1.2",
+    "supertest": "^7.3.1",
+    "vitest": "^5.0.3"
+  },
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "overrides": {
+    "shell-quote": "^1.12.0"
   }
 }

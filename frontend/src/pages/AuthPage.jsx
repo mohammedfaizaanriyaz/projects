@@ -69,6 +69,7 @@ export default function AuthPage() {
     event
   ) {
     event.preventDefault();
+    if (busy) return;
 
     try {
       setBusy(true);
@@ -158,6 +159,7 @@ export default function AuthPage() {
       <section className="auth-panel glass-card glass-card--glow">
         <div className="auth-tabs">
           <button
+            disabled={busy}
             className={
               mode === "login"
                 ? "is-active"
@@ -173,6 +175,7 @@ export default function AuthPage() {
           </button>
 
           <button
+            disabled={busy}
             className={
               mode === "register"
                 ? "is-active"
@@ -201,10 +204,7 @@ export default function AuthPage() {
           </h2>
 
           <p>
-            Login state comes
-            from the backend
-            HTTP-only cookie,
-            not localStorage.
+            Sign in to access your profiles, health records and daily routines.
           </p>
         </div>
 
@@ -228,6 +228,9 @@ export default function AuthPage() {
 
                 <input
                   required
+                  autoComplete="name"
+                  maxLength={100}
+                  disabled={busy}
                   value={
                     form.name
                   }
@@ -260,6 +263,9 @@ export default function AuthPage() {
               <input
                 required
                 type="email"
+                autoComplete="username"
+                maxLength={255}
+                disabled={busy}
                 value={
                   form.email
                 }
@@ -292,6 +298,8 @@ export default function AuthPage() {
                 required
                 minLength={8}
                 type="password"
+                autoComplete={mode === "login" ? "current-password" : "new-password"}
+                disabled={busy}
                 value={
                   form.password
                 }
@@ -311,7 +319,7 @@ export default function AuthPage() {
           </label>
 
           {error && (
-            <div className="inline-error">
+            <div className="inline-error" role="alert">
               {error}
             </div>
           )}

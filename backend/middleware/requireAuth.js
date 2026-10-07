@@ -49,6 +49,10 @@ const requireAuth = async (
                 });
         }
 
+        if (!Number.isSafeInteger(decoded.userId) || decoded.userId < 1) {
+            return res.status(401).json({ error: "Invalid session" });
+        }
+
         const user =
             await userService
                 .findUserById(

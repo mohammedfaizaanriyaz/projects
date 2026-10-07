@@ -16,9 +16,12 @@ import {
   useApp
 } from "../context/AppContext";
 
+import { displayMeasurement, KG_PER_POUND } from "../utils/units";
+
 export default function ProgressPage() {
   const {
-    weightHistory
+    weightHistory,
+    weightUnit
   } =
     useApp();
 
@@ -67,7 +70,7 @@ export default function ProgressPage() {
           value={
             change == null
               ? "—"
-              : `${change > 0 ? "+" : ""}${change.toFixed(1)} kg`
+              : `${change > 0 ? "+" : ""}${(change / (weightUnit === "lb" ? KG_PER_POUND : 1)).toFixed(1)} ${weightUnit}`
           }
           helper="From first to latest record"
           accent="violet"
@@ -78,7 +81,7 @@ export default function ProgressPage() {
           label="Latest"
           value={
             last
-              ? `${last.weight_kg} kg`
+              ? displayMeasurement(last.weight_kg, weightUnit)
               : "—"
           }
           helper="Most recent record"

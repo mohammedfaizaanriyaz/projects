@@ -22,7 +22,9 @@ export default function Sidebar({
   activePage,
   onNavigate,
   mobileOpen,
-  onCloseMobile
+  onCloseMobile,
+  sidebarRef,
+  isMobile
 }) {
   const {
     user,
@@ -52,6 +54,8 @@ export default function Sidebar({
   return (
     <>
       <button
+        hidden={!isMobile || !mobileOpen}
+        tabIndex={-1}
         aria-label="Close menu"
         className={`sidebar-backdrop ${
           mobileOpen
@@ -64,6 +68,13 @@ export default function Sidebar({
       />
 
       <aside
+        id="app-sidebar"
+        ref={sidebarRef}
+        inert={isMobile && !mobileOpen}
+        aria-hidden={isMobile && !mobileOpen}
+        aria-label="Main navigation"
+        role={isMobile && mobileOpen ? "dialog" : undefined}
+        aria-modal={isMobile && mobileOpen ? true : undefined}
         className={`sidebar ${
           mobileOpen
             ? "is-open"
@@ -83,6 +94,7 @@ export default function Sidebar({
           </div>
 
           <button
+            aria-label="Close navigation"
             className="sidebar__close"
             onClick={
               onCloseMobile
@@ -95,6 +107,7 @@ export default function Sidebar({
         {profiles.length >
           0 && (
           <select
+            aria-label="Selected profile"
             className="profile-switcher"
             value={
               selectedProfileId ||
@@ -158,6 +171,7 @@ export default function Sidebar({
                     }
                   >
                     <button
+                      aria-expanded={Boolean(open)}
                       className={`nav-item ${
                         childActive
                           ? "is-parent-active"
@@ -213,6 +227,7 @@ export default function Sidebar({
                                 key={
                                   child.page
                                 }
+                                aria-current={child.page === activePage ? "page" : undefined}
                                 className={`nav-subitem ${
                                   child.page ===
                                   activePage
@@ -248,6 +263,7 @@ export default function Sidebar({
                   key={
                     item.page
                   }
+                  aria-current={item.page === activePage ? "page" : undefined}
                   className={`nav-item ${
                     item.page ===
                     activePage
@@ -297,6 +313,7 @@ export default function Sidebar({
               logout
             }
             title="Logout"
+            aria-label="Logout"
           >
             <LogOut
               size={16}

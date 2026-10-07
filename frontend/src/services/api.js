@@ -1,47 +1,41 @@
-const API_URL =
-  import.meta.env.VITE_API_URL ||
-  "http://localhost:5000";
+const API_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+let sessionVersion = 0;
+export function notifySessionChange() { sessionVersion += 1; }
 
-async function request(
-  path,
-  options = {}
-) {
-  const response = await fetch(
-    `${API_URL}${path}`,
-    {
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        ...(options.headers || {})
-      },
-      ...options
-    }
-  );
-
-  let data = {};
-
+async function request(path, options = {}) {
+  const version = sessionVersion;
+  const timeout = AbortSignal.timeout(40000);
+  const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
+  let response;
   try {
-    data =
-      await response.json();
-  } catch {
-    data = {};
+    response = await fetch(`${API_URL}${path}`, {
+      ...options, credentials: "include", signal,
+      headers: {
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
+        "X-Vyra-Request": "1", ...options.headers,
+      },
+    });
+  } catch (error) {
+    if (options.signal?.aborted) throw error;
+    throw new Error(timeout.aborted
+      ? "The request timed out. Check the latest data before retrying a save."
+      : "Cannot reach the server. Check your connection and try again.", { cause: error });
   }
-
+  let data;
+  try { data = await response.json(); }
+  catch { throw new Error("The server returned an unreadable response. Please try again."); }
   if (!response.ok) {
-    const error =
-      new Error(
-        data.error ||
-        `Request failed (${response.status})`
-      );
-
-    error.status =
-      response.status;
-
+    if (response.status === 401 && !path.startsWith("/api/auth/") && version === sessionVersion) {
+      window.dispatchEvent(new Event("vyra:session-expired"));
+    }
+    const error = new Error(data.error || `Request failed (${response.status})`);
+    error.status = response.status;
     throw error;
   }
-
+  if (data === null || typeof data !== "object") throw new Error("The server returned an unexpected response.");
   return data;
 }
+
 function taskTimeToIso(value) {
   if (
     value === undefined ||
@@ -122,6 +116,10 @@ function prepareTaskPayload(payload) {
 }
 
 export const api = {
+  getTaskSummary(userId) { return request(`/api/users/${userId}/task-summary`); },
+  deleteWeight(profileId, weightId) {
+    return request(`/api/profiles/${profileId}/weight-records/${weightId}`, { method: "DELETE" });
+  },
   health() {
     return request(
       "/api/health"

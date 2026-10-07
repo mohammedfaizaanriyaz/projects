@@ -6,11 +6,17 @@ import {
 
 export default function Topbar({
   onOpenMobile,
-  onNavigate
+  onNavigate,
+  mobileOpen,
+  opener
 }) {
   return (
     <div className="topbar">
       <button
+        ref={opener}
+        aria-label="Open navigation"
+        aria-controls="app-sidebar"
+        aria-expanded={mobileOpen}
         className="icon-button mobile-menu-button"
         onClick={
           onOpenMobile
@@ -21,6 +27,7 @@ export default function Topbar({
 
       <button
         className="command-search"
+        aria-label="Search nutrition"
         onClick={() =>
           onNavigate(
             "nutrition"
@@ -34,6 +41,7 @@ export default function Topbar({
       </button>
 
       <button
+        aria-label="Open reminders"
         className="icon-button topbar-bell"
         onClick={() =>
           onNavigate(

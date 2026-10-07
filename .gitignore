@@ -79,3 +79,6 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+# Browser test artifacts
+playwright-report/
+test-results/

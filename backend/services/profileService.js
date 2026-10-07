@@ -35,6 +35,7 @@ const createProfile = async ({
     neck,
     hip,
     currentWeight,
+    recordedDate,
     targetWeight,
     activityLevel,
     bmi,
@@ -131,13 +132,14 @@ const createProfile = async ({
                         body_fat_percentage,
                         recorded_date
                     )
-                    VALUES (?, ?, ?, ?, CURDATE())
+                    VALUES (?, ?, ?, ?, ?)
                     `,
                     [
                         profileId,
                         currentWeight,
                         bmi,
-                        bodyFat
+                        bodyFat,
+                        recordedDate
                     ]
                 );
 

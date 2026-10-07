@@ -16,7 +16,8 @@ function isPositiveNumber(value) {
     }
 
     const number = Number(value);
-    return Number.isFinite(number) && number > 0;
+    return Number.isFinite(number) && number >= 0.001 && number <= 999999999.999 &&
+        Math.abs(number * 1000 - Math.round(number * 1000)) < 0.0001;
 }
 
 function isValidFdcId(value) {
@@ -99,7 +100,7 @@ const calculateFood = async (req, res, next) => {
 
         if (!isPositiveNumber(quantity)) {
             return res.status(400).json({
-                error: "Quantity must be a positive number"
+                error: "Quantity must be 0.001 to 999999999.999 with at most 3 decimal places"
             });
         }
 
@@ -140,7 +141,7 @@ const analyzeFood = async (req, res, next) => {
 
         if (!isPositiveNumber(quantity)) {
             return res.status(400).json({
-                error: "Quantity must be a positive number"
+                error: "Quantity must be 0.001 to 999999999.999 with at most 3 decimal places"
             });
         }
 

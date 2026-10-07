@@ -9,7 +9,7 @@ import GlassCard
 import PageHeader
   from "../components/ui/PageHeader";
 
-export default function RecipesPage() {
+export default function RecipesPage({ onNavigate }) {
   return (
     <>
       <PageHeader
@@ -31,6 +31,7 @@ export default function RecipesPage() {
             the actual ingredients
             and quantities.
           </p>
+          <button className="text-button" onClick={() => onNavigate("meals")}>Open Meal Builder</button>
         </GlassCard>
 
         <GlassCard>
@@ -41,11 +42,9 @@ export default function RecipesPage() {
             Dish-name mode
           </h3>
           <p>
-            Faster, but the
-            backend treats it as
-            an estimate because
-            recipes vary.
+            Search USDA and select the food that matches your dish before calculating its nutrition.
           </p>
+          <button className="text-button" onClick={() => onNavigate("nutrition")}>Search foods</button>
         </GlassCard>
       </div>
     </>

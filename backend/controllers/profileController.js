@@ -1,4 +1,5 @@
 const profileService = require("../services/profileService");
+const { today, observationDate } = require("../utils/calendarDate");
 const { numberOrNull } = require("../utils/numberUtils");
 
 const {
@@ -81,7 +82,7 @@ function validateName(value) {
     return name;
 }
 
-function validateDob(value) {
+function validateDob(value, timeZone) {
     if (typeof value !== "string") {
         invalid("DOB must be a date in YYYY-MM-DD format");
     }
@@ -102,10 +103,9 @@ function validateDob(value) {
         invalid("DOB must be a valid calendar date");
     }
 
-    // Use the UTC calendar date consistently on the backend.
-    const today = new Date().toISOString().slice(0, 10);
+    const lastDate = today(timeZone);
 
-    if (text > today) {
+    if (text > lastDate) {
         invalid("DOB cannot be in the future");
     }
 
@@ -159,7 +159,7 @@ function validateMeasurement(value, label, optional = false) {
 }
 
 // Calculated values must also fit their DECIMAL(5,2) columns.
-// Formula plausibility is a separate M6 fix.
+// Formula helpers return null for unavailable or impossible estimates.
 function validateCalculatedValue(value, label) {
     if (value === null || value === undefined) return null;
 
@@ -183,7 +183,7 @@ function validateProfileData(body, creating) {
     }
 
     if (creating || input.dob !== undefined) {
-        data.dob = validateDob(input.dob);
+        data.dob = validateDob(input.dob, input.time_zone);
     }
 
     if (creating || input.gender !== undefined) {
@@ -205,6 +205,7 @@ function validateProfileData(body, creating) {
     }
 
     if (creating) {
+        data.recordedDate = observationDate(input.recorded_date, data.dob, input.time_zone);
         data.currentWeight = validateMeasurement(
             input.current_weight_kg,
             "Current weight",
@@ -325,7 +326,7 @@ const getProfilesByUser = async (req, res, next) => {
 const getProfile = async (req, res, next) => {
     try {
         const profileId = validateId(req.params.profileId, "profile ID");
-        const result = await profileService.getProfileById(profileId);
+        const result = req.ownedProfile || await profileService.getProfileById(profileId);
 
         if (!result) {
             return res.status(404).json({

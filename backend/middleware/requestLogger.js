@@ -1,17 +1,13 @@
-function requestLogger(req, res, next) {
-  const startTime = Date.now();
+const { randomUUID } = require("node:crypto");
 
-  console.log(`[REQUEST] ${req.method} ${req.originalUrl}`);
-
-  res.on("finish", () => {
-    const duration = Date.now() - startTime;
-
-    console.log(
-      `[RESPONSE] ${res.statusCode} ${req.method} ${req.originalUrl} - ${duration}ms`,
-    );
-  });
-
+module.exports = (req, res, next) => {
+  req.requestId = randomUUID();
+  res.set("X-Request-Id", req.requestId);
+  const started = performance.now();
+  res.on("finish", () => console.log(JSON.stringify({
+    event: "request", requestId: req.requestId, method: req.method,
+    path: req.originalUrl.split("?")[0], status: res.statusCode,
+    durationMs: Math.round(performance.now() - started),
+  })));
   next();
-}
-
-module.exports = requestLogger;
+};

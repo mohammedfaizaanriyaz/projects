@@ -86,6 +86,7 @@ function NutritionWorkspace({ profile, nutritionDate, saveNutritionLog }) {
   const [unit, setUnit] = useState("g");
   const [mealType, setMealType] = useState("breakfast");
   const [results, setResults] = useState([]);
+  const [searched, setSearched] = useState(false);
   const [selected, setSelected] = useState(null);
   const [details, setDetails] = useState(null);
   const [calculation, setCalculation] = useState(null);
@@ -147,6 +148,7 @@ function NutritionWorkspace({ profile, nutritionDate, saveNutritionLog }) {
     invalidateCalculation();
     setQuery(value);
     setResults([]);
+    setSearched(false);
     setSelected(null);
     setDetails(null);
     setUnit("g");
@@ -191,6 +193,7 @@ function NutritionWorkspace({ profile, nutritionDate, saveNutritionLog }) {
     const version = startRequest("search");
 
     setResults([]);
+    setSearched(false);
     setSelected(null);
     setDetails(null);
     setUnit("g");
@@ -200,6 +203,7 @@ function NutritionWorkspace({ profile, nutritionDate, saveNutritionLog }) {
       if (requestVersion.current !== version) return;
 
       setResults(data.foods || []);
+      setSearched(true);
     } catch (error) {
       if (requestVersion.current === version) {
         setError(error.message || "Could not search for foods.");
@@ -243,8 +247,8 @@ function NutritionWorkspace({ profile, nutritionDate, saveNutritionLog }) {
 
     const numericQuantity = Number(quantity);
 
-    if (!Number.isFinite(numericQuantity) || numericQuantity <= 0) {
-      setError("Enter a quantity greater than zero.");
+    if (!Number.isFinite(numericQuantity) || numericQuantity < 0.001 || numericQuantity > 999999999.999) {
+      setError("Enter a quantity from 0.001 to 999999999.999.");
       return;
     }
 
@@ -364,6 +368,7 @@ function NutritionWorkspace({ profile, nutritionDate, saveNutritionLog }) {
               <Search size={16} />
               <input
                 aria-label="Search foods"
+                maxLength={120}
                 value={query}
                 disabled={saving}
                 onChange={(event) => changeQuery(event.target.value)}
@@ -417,7 +422,7 @@ function NutritionWorkspace({ profile, nutritionDate, saveNutritionLog }) {
               <div className="empty-state">
                 {busy === "search"
                   ? "Searching..."
-                  : "Search results will appear here."}
+                  : searched ? "No foods found. Try another search." : "Search results will appear here."}
               </div>
             )}
           </div>
@@ -437,8 +442,8 @@ function NutritionWorkspace({ profile, nutritionDate, saveNutritionLog }) {
                 <span>Quantity</span>
                 <input
                   type="number"
-                  min="0.01"
-                  step="0.01"
+                  min="0.001"
+                  step="0.001"
                   value={quantity}
                   disabled={quantityDisabled}
                   onChange={(event) => changeQuantity(event.target.value)}

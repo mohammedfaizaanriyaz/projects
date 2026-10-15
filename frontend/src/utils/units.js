@@ -18,3 +18,20 @@ export function localToday() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
+
+export function heightToFeetInches(heightCm) {
+  const n = Number(heightCm);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const totalInches = n / CM_PER_INCH;
+  let feet = Math.floor(totalInches / 12);
+  let inches = Number((totalInches - feet * 12).toFixed(2));
+  if (inches >= 12) { feet += 1; inches = 0; }
+  return { feet, inches };
+}
+export function feetInchesToHeightCm(feet, inches) {
+  const f = Number(feet), i = Number(inches);
+  if (!Number.isInteger(f) || f < 0 || !Number.isFinite(i) || i < 0 || i >= 12) throw new Error("Use whole feet and inches from 0 to under 12.");
+  const cm = (f * 12 + i) * CM_PER_INCH;
+  if (cm < 1 || cm > 999.99) throw new Error("Height is outside the supported range.");
+  return Number(cm.toFixed(2));
+}

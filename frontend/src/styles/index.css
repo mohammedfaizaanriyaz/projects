@@ -619,3 +619,12 @@ textarea:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outlin
 }
 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* Accessible goal controls on the dark VYRA surface. */
+.goal-choice { display:flex; gap:12px; align-items:flex-start; padding:13px; border:1px solid var(--border); border-radius:12px; background:#0d1429; color:#f7f9ff; cursor:pointer; }
+.goal-choice input { accent-color:#a78bfa; margin-top:4px; flex-shrink:0; }
+.goal-choice span { display:grid; gap:5px; } .goal-choice strong { color:#f7f9ff; } .goal-choice small,.goals-note { color:#b4c0d6; line-height:1.6; font-size:13px; } .goals-note { margin:10px 0; }
+.goals-estimates { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-bottom:14px; }.goals-estimates>div { display:grid; gap:5px; padding:14px; border:1px solid var(--border); border-radius:12px; background:#0d1429; }.goals-estimates span { color:#b4c0d6; font-size:12px; }.goals-estimates strong { color:#fff; font-size:17px; }.goals-actions { margin-top:18px; }
+.nutrition-search-card,.nutrition-output-card,.food-result,.food-result strong,.food-result span,.nutrient-tile,.nutrient-tile strong,.nutrient-tile span { color:#f0f4ff; }.food-result span,.nutrient-tile>span { color:#b4c0d6; }
+input::placeholder,textarea::placeholder { color:#aab6cd; opacity:1; } select,select option { color:#f0f4ff; background-color:#0b1020; }
+@media(max-width:700px) { .goals-estimates { grid-template-columns:1fr; } }

@@ -51,7 +51,8 @@ export const NAVIGATION = [
         label: "Body metrics",
         icon: Target,
         page: "body-metrics"
-      }
+      },
+      { label: "Fitness goals", icon: Target, page: "goals" }
     ]
   },
   {

@@ -17,7 +17,7 @@ export default function SettingsPage() {
       <PageHeader
         eyebrow="Control center"
         title="Settings"
-        subtitle="Unit preferences are stored on this browser and shared across profiles."
+        subtitle="Unit preferences are stored on this browser and shared across profiles. Height supports ft/in entry in the Fitness goals roadmap; current forms use cm or inches."
       />
 
       {unitPreferenceError && (

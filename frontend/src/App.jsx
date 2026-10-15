@@ -20,6 +20,7 @@ const pages = {
   reminders: lazy(() => import("./pages/RemindersPage")),
   progress: lazy(() => import("./pages/ProgressPage")),
   settings: lazy(() => import("./pages/SettingsPage")),
+  goals: lazy(() => import("./pages/GoalsPage")),
 };
 function readPage() {
   const page = window.location.hash.replace(/^#\/?/, "");
